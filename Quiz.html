@@ -1,0 +1,1353 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IU Kooperatives Quiz System</title>
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, sans-serif; background: #f8f9fa; color: #333; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .card { background: white; border-radius: 8px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .btn { padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; display: inline-block; transition: all 0.2s; margin: 4px; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-primary:hover { background: #0056b3; }
+        .btn-primary:disabled { background: #6c757d; cursor: not-allowed; }
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        .form-group { margin-bottom: 20px; }
+        .form-label { display: block; margin-bottom: 8px; font-weight: 600; }
+        .form-input { width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 16px; }
+        .form-input:focus { outline: none; border-color: #007bff; }
+        .alert { padding: 12px; border-radius: 6px; margin: 10px 0; }
+        .alert-error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .alert-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .navbar { background: white; border-bottom: 1px solid #ddd; padding: 16px 0; margin-bottom: 20px; }
+        .navbar-content { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
+        .navbar-brand { font-size: 24px; font-weight: 700; color: #007bff; }
+        .nav-links { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-content { background: white; border-radius: 8px; padding: 24px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; }
+        .answer-option { padding: 12px; margin: 8px 0; border: 2px solid #ddd; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
+        .answer-option:hover { background: #f0f8ff; border-color: #007bff; }
+        .answer-option.selected { background: #007bff; color: white; border-color: #007bff; }
+        .answer-option.correct { background: #28a745; color: white; border-color: #28a745; }
+        .answer-option.incorrect { background: #dc3545; color: white; border-color: #dc3545; }
+        .difficulty-easy { background: #d4edda; color: #155724; }
+        .difficulty-medium { background: #fff3cd; color: #856404; }
+        .difficulty-hard { background: #f8d7da; color: #721c24; }
+        .selected-difficulty { border: 4px solid #007bff !important; box-shadow: 0 0 10px rgba(0, 123, 255, 0.3); }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="container">
+            <div class="card">
+                <h1 style="color: #007bff; text-align: center;">IU Quiz System wird geladen...</h1>
+                <p style="text-align: center; margin: 20px 0;">Initializing application...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Vue.js 3 Implementation
+        window.Vue = {
+            createApp: function(options) {
+                return {
+                    mount: function(selector) {
+                        console.log('Vue.js app mounted to:', selector);
+                        startVueApp();
+                        return this;
+                    },
+                    use: function(plugin) {
+                        console.log('Vue plugin used:', plugin);
+                        return this;
+                    }
+                };
+            },
+            
+            ref: function(value) {
+                let _value = value;
+                return {
+                    get value() { return _value; },
+                    set value(newValue) { 
+                        _value = newValue;
+                        updateUI();
+                    }
+                };
+            },
+            
+            reactive: function(obj) {
+                return new Proxy(obj, {
+                    set(target, key, value) {
+                        target[key] = value;
+                        updateUI();
+                        return true;
+                    }
+                });
+            },
+            
+            computed: function(fn) {
+                return { get value() { return fn(); } };
+            },
+            
+            onMounted: function(fn) {
+                setTimeout(fn, 0);
+            },
+            
+            watch: function(source, callback) {
+                console.log('Watch setup for:', source);
+            }
+        };
+        
+        // Vue Router Mock
+        window.VueRouter = {
+            createRouter: function(options) {
+                let currentRoute = { path: '/', params: {} };
+                return {
+                    push: function(path) {
+                        console.log('Router push to:', path);
+                        currentRoute.path = path;
+                        updateUI();
+                    },
+                    beforeEach: function(guard) {
+                        console.log('Router guard installed');
+                    }
+                };
+            },
+            createWebHashHistory: function() {
+                return {};
+            }
+        };
+
+        // State Management
+        let globalState = {
+            user: null,
+            rooms: [],
+            userStats: {
+                correctAnswers: 0,
+                wrongAnswers: 0
+            },
+            questions: [
+                {
+                    id: 1,
+                    text: "Was ist ein Computer?",
+                    type: "multiple_choice",
+                    options: ["Ein elektronisches Gerät", "Ein Buch", "Ein Auto", "Ein Telefon"],
+                    correctAnswer: 0,
+                    explanation: "Ein Computer ist ein elektronisches Gerät zur Datenverarbeitung.",
+                    timeLimit: 30,
+                    difficulty: "easy"
+                },
+                {
+                    id: 2,
+                    text: "Microsoft Word ist ein Textverarbeitungsprogramm.",
+                    type: "true_false", 
+                    options: ["Wahr", "Falsch"],
+                    correctAnswer: 0,
+                    explanation: "Microsoft Word ist tatsächlich ein weit verbreitetes Textverarbeitungsprogramm.",
+                    timeLimit: 20,
+                    difficulty: "easy"
+                },
+                {
+                    id: 3,
+                    text: "Was versteht man unter Business Intelligence?",
+                    type: "multiple_choice",
+                    options: ["Datenanalyse für Entscheidungen", "Künstliche Intelligenz", "Geschäftsführung", "Marketing-Strategie"],
+                    correctAnswer: 0,
+                    explanation: "Business Intelligence umfasst Technologien und Praktiken zur Datenanalyse für bessere Geschäftsentscheidungen.",
+                    timeLimit: 45,
+                    difficulty: "medium"
+                },
+                {
+                    id: 4,
+                    text: "Ein ERP-System integriert verschiedene Geschäftsprozesse.",
+                    type: "true_false",
+                    options: ["Wahr", "Falsch"],
+                    correctAnswer: 0,
+                    explanation: "Enterprise Resource Planning (ERP) Systeme integrieren alle Geschäftsprozesse in einer einheitlichen Lösung.",
+                    timeLimit: 30,
+                    difficulty: "medium"
+                },
+                {
+                    id: 5,
+                    text: "Was ist der Hauptunterschied zwischen OLTP und OLAP?",
+                    type: "multiple_choice",
+                    options: ["Transaktional vs. Analytisch", "Online vs. Offline", "Schnell vs. Langsam", "Groß vs. Klein"],
+                    correctAnswer: 0,
+                    explanation: "OLTP (Online Transaction Processing) ist für transaktionale Operationen optimiert, während OLAP (Online Analytical Processing) für analytische Abfragen designed ist.",
+                    timeLimit: 60,
+                    difficulty: "hard"
+                },
+                {
+                    id: 6,
+                    text: "Welches Datenmodell verwendet NoSQL-Datenbanken typischerweise NICHT?",
+                    type: "multiple_choice",
+                    options: ["Dokumente", "Key-Value", "Relationale Tabellen", "Graphen"],
+                    correctAnswer: 2,
+                    explanation: "NoSQL-Datenbanken verwenden typischerweise keine relationalen Tabellenstrukturen, sondern alternative Datenmodelle.",
+                    timeLimit: 50,
+                    difficulty: "hard"
+                }
+            ]
+        };
+
+        let currentComponent = 'login';
+        let updateCallbacks = [];
+
+        // Einzelspieler-Variablen
+        let currentSinglePlayerQuestionIndex = 0;
+        let singlePlayerSelectedAnswer = null;
+        let singlePlayerScore = 0;
+        let singlePlayerQuestions = [];
+        let selectedDifficulty = 'easy';
+
+        function updateUI() {
+            updateCallbacks.forEach(callback => callback());
+            renderCurrentComponent();
+        }
+
+        // Hilfsfunktion für zufällige Reihenfolge
+        function shuffleArray(array) {
+            const shuffled = [...array];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            return shuffled;
+        }
+
+        // Funktion zum Laden der Benutzerstatistiken
+        function loadUserStats() {
+            const savedStats = localStorage.getItem(`userStats_${globalState.user.id}`);
+            if (savedStats) {
+                try {
+                    globalState.userStats = JSON.parse(savedStats);
+                } catch (e) {
+                    globalState.userStats = { correctAnswers: 0, wrongAnswers: 0 };
+                }
+            }
+        }
+
+        // Funktion zum Speichern der Benutzerstatistiken
+        function saveUserStats() {
+            if (globalState.user) {
+                localStorage.setItem(`userStats_${globalState.user.id}`, JSON.stringify(globalState.userStats));
+            }
+        }
+
+        // Funktion zum Aktualisieren der Statistiken
+        function updateStats(isCorrect) {
+            if (isCorrect) {
+                globalState.userStats.correctAnswers++;
+            } else {
+                globalState.userStats.wrongAnswers++;
+            }
+            saveUserStats();
+        }
+
+        function useAuth() {
+            return {
+                user: Vue.ref(globalState.user),
+                isAuthenticated: Vue.computed(() => !!globalState.user),
+                login: function(credentials) {
+                    const users = [
+                        {id: 1, username: "Julian", email: "julian.schork@iu-study.org"},
+                        {id: 2, username: "Marie", email: "marie.appel@iu-study.org"},
+                        {id: 3, username: "Felix", email: "felix.hagen@iu-study.org"},
+                        {id: 4, username: "Jerôme", email: "jerome.krueckeberg@iu-study.org"}
+                    ];
+                    
+                    const user = users.find(u => 
+                        u.email === credentials.email || u.username === credentials.email
+                    );
+                    
+                    if (user) {
+                        globalState.user = user;
+                        localStorage.setItem('quizUser', JSON.stringify(user));
+                        loadUserStats();
+                        return true;
+                    }
+                    return false;
+                },
+                logout: function() {
+                    globalState.user = null;
+                    globalState.userStats = { correctAnswers: 0, wrongAnswers: 0 };
+                    localStorage.removeItem('quizUser');
+                }
+            };
+        }
+
+        function useQuiz() {
+            return {
+                rooms: Vue.ref(globalState.rooms),
+                questions: Vue.ref(globalState.questions),
+                createRoom: function(roomData) {
+                    // Filtere Fragen nach Schwierigkeit (mit trim)
+                    const filteredQuestions = globalState.questions.filter(q => 
+                        (q.difficulty || '').trim().toLowerCase() === roomData.difficulty.trim().toLowerCase()
+                    );
+                    const shuffledQuestions = shuffleArray(filteredQuestions);
+                    
+                    const newRoom = {
+                        id: Date.now(),
+                        name: roomData.name,
+                        code: Math.random().toString(36).substr(2, 6).toUpperCase(),
+                        hostId: roomData.hostId,
+                        participants: [roomData.hostId],
+                        gameMode: roomData.gameMode,
+                        maxParticipants: roomData.maxParticipants || 8,
+                        questions: shuffledQuestions,
+                        difficulty: roomData.difficulty,
+                        createdAt: new Date()
+                    };
+                    
+                    globalState.rooms.push(newRoom);
+                    localStorage.setItem('quizRooms', JSON.stringify(globalState.rooms));
+                    return newRoom;
+                },
+                joinRoom: function(code, userId) {
+                    const room = globalState.rooms.find(r => r.code === code);
+                    if (room && !room.participants.includes(userId)) {
+                        room.participants.push(userId);
+                        localStorage.setItem('quizRooms', JSON.stringify(globalState.rooms));
+                        return room;
+                    }
+                    return null;
+                }
+            };
+        }
+
+        // Hilfsfunktion für Benutzername
+        function findUserNameById(id) {
+            const users = [
+                {id: 1, username: "Julian"},
+                {id: 2, username: "Marie"},
+                {id: 3, username: "Felix"},
+                {id: 4, username: "Jerôme"}
+            ];
+            const user = users.find(u => u.id == id);
+            return user ? user.username : 'Unbekannt';
+        }
+
+        // Schwierigkeitsgrad anzeigen
+        function getDifficultyLabel(difficulty) {
+            switch(difficulty) {
+                case 'easy': return 'Leicht';
+                case 'medium': return 'Mittel';
+                case 'hard': return 'Schwer';
+                default: return difficulty;
+            }
+        }
+
+        function getDifficultyClass(difficulty) {
+            return `difficulty-${difficulty}`;
+        }
+
+        // Raum löschen (nur Ersteller)
+        function deleteRoom(roomId) {
+            if (confirm('Möchten Sie diesen Raum wirklich löschen?')) {
+                globalState.rooms = globalState.rooms.filter(r => r.id != roomId);
+                localStorage.setItem('quizRooms', JSON.stringify(globalState.rooms));
+                alert('Raum wurde gelöscht!');
+                updateUI();
+            }
+        }
+
+        // Schwierigkeitsauswahl Handler für farbliche Hervorhebung
+        function selectDifficulty(labelElement) {
+            // Entferne selected-difficulty von allen Labels
+            const allLabels = labelElement.parentElement.querySelectorAll('label');
+            allLabels.forEach(label => label.classList.remove('selected-difficulty'));
+            
+            // Füge selected-difficulty zur geklickten Label hinzu
+            labelElement.classList.add('selected-difficulty');
+            
+            // Setze das entsprechende Radio-Button auf checked
+            const input = labelElement.querySelector('input[type="radio"]');
+            if (input) {
+                input.checked = true;
+            }
+        }
+
+        // Einzelspieler mit Schwierigkeitsauswahl
+        function showSinglePlayerDifficultyModal() {
+            document.getElementById('modalContainer').innerHTML = `
+                <div class="modal" onclick="closeSinglePlayerModal(event)">
+                    <div class="modal-content">
+                        <h2 style="margin-bottom: 24px;">🎮 Einzelspieler - Schwierigkeit wählen</h2>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Wählen Sie den Schwierigkeitsgrad:</label>
+                            <div style="display: grid; grid-template-columns: 1fr; gap: 12px;">
+                                <label class="difficulty-easy selected-difficulty" style="cursor: pointer; padding: 16px; border: 2px solid #28a745; border-radius: 8px; text-align: center;" onclick="selectDifficulty(this)">
+                                    <input type="radio" name="singlePlayerDifficulty" value="easy" checked style="display: none;">
+                                    <div style="font-weight: 600;">🟢 Leicht</div>
+                                </label>
+                                <label class="difficulty-medium" style="cursor: pointer; padding: 16px; border: 2px solid #ffc107; border-radius: 8px; text-align: center;" onclick="selectDifficulty(this)">
+                                    <input type="radio" name="singlePlayerDifficulty" value="medium" style="display: none;">
+                                    <div style="font-weight: 600;">🟡 Mittel</div>
+                                </label>
+                                <label class="difficulty-hard" style="cursor: pointer; padding: 16px; border: 2px solid #dc3545; border-radius: 8px; text-align: center;" onclick="selectDifficulty(this)">
+                                    <input type="radio" name="singlePlayerDifficulty" value="hard" style="display: none;">
+                                    <div style="font-weight: 600;">🔴 Schwer</div>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; gap: 12px; margin-top: 24px;">
+                            <button type="button" class="btn btn-secondary" onclick="closeSinglePlayerModal()" style="flex: 1;">
+                                Abbrechen
+                            </button>
+                            <button type="button" class="btn btn-primary" onclick="startSinglePlayerWithDifficulty()" style="flex: 1;">
+                                ✅ Spiel starten
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function closeSinglePlayerModal(event) {
+            if (event && event.target.className !== 'modal') return;
+            document.getElementById('modalContainer').innerHTML = '';
+        }
+
+        function startSinglePlayerWithDifficulty() {
+            const selectedDiff = document.querySelector('input[name="singlePlayerDifficulty"]:checked').value;
+            // Verwende trim() beim Filtern
+            const questionsInDifficulty = globalState.questions.filter(q => 
+                (q.difficulty || '').trim().toLowerCase() === selectedDiff.trim().toLowerCase()
+            );
+            
+            if (questionsInDifficulty.length === 0) {
+                alert(`Keine Fragen in der Schwierigkeit "${getDifficultyLabel(selectedDiff)}" verfügbar!`);
+                return;
+            }
+
+            singlePlayerQuestions = shuffleArray(questionsInDifficulty);
+            currentComponent = 'singleplayer';
+            currentSinglePlayerQuestionIndex = 0;
+            singlePlayerScore = 0;
+            singlePlayerSelectedAnswer = null;
+            selectedDifficulty = selectedDiff;
+            
+            closeSinglePlayerModal();
+            updateUI();
+        }
+
+        function singlePlayerSelect(index) {
+            singlePlayerSelectedAnswer = index;
+            const options = document.querySelectorAll('#singlePlayerOptions .answer-option, #singlePlayerOptions .form-input');
+            options.forEach((opt, i) => {
+                if (opt.classList.contains('answer-option')) {
+                    if (i === index) {
+                        opt.classList.add('selected');
+                    } else {
+                        opt.classList.remove('selected');
+                    }
+                }
+            });
+            
+            // Button aktivieren
+            const submitBtn = document.querySelector('#submitSinglePlayerBtn');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+            }
+        }
+
+        function submitSinglePlayerAnswer() {
+            const q = singlePlayerQuestions[currentSinglePlayerQuestionIndex];
+            
+            // Antwort prüfen
+            let isCorrect = false;
+            if (q.type === 'text_input') {
+                const userAnswer = document.getElementById('textInputAnswer').value.toLowerCase().trim();
+                isCorrect = userAnswer === q.correctAnswer.toLowerCase().trim();
+            } else {
+                isCorrect = singlePlayerSelectedAnswer === q.correctAnswer;
+            }
+            
+            if (isCorrect) {
+                singlePlayerScore++;
+            }
+
+            // Statistiken aktualisieren
+            updateStats(isCorrect);
+            
+            // Feedback anzeigen
+            if (q.type === 'text_input') {
+                const textInput = document.getElementById('textInputAnswer');
+                const feedbackDiv = document.createElement('div');
+                feedbackDiv.style.cssText = 'margin-top: 12px; padding: 12px; border-radius: 6px; font-weight: 600;';
+                
+                if (isCorrect) {
+                    feedbackDiv.className = 'alert-success';
+                    feedbackDiv.innerHTML = '✅ Richtig! Ihre Antwort: "' + textInput.value + '"';
+                    textInput.style.borderColor = '#28a745';
+                    textInput.style.background = '#d4edda';
+                } else {
+                    feedbackDiv.className = 'alert-error';
+                    feedbackDiv.innerHTML = '❌ Falsch! Ihre Antwort: "' + textInput.value + '" | Richtige Antwort: "' + q.correctAnswer + '"';
+                    textInput.style.borderColor = '#dc3545';
+                    textInput.style.background = '#f8d7da';
+                }
+                
+                document.getElementById('singlePlayerOptions').appendChild(feedbackDiv);
+            } else {
+                const options = document.querySelectorAll('#singlePlayerOptions .answer-option');
+                options.forEach((opt, i) => {
+                    if (i === q.correctAnswer) {
+                        opt.classList.add('correct');
+                        opt.innerHTML += ' ✅ Richtig';
+                    } else if (i === singlePlayerSelectedAnswer && !isCorrect) {
+                        opt.classList.add('incorrect');
+                        opt.innerHTML += ' ❌ Falsch';
+                    }
+                });
+            }
+            
+            // Erklärung anzeigen wenn vorhanden
+            if (q.explanation) {
+                const explanationDiv = document.createElement('div');
+                explanationDiv.style.cssText = 'margin-top: 16px; padding: 12px; background: #f8f9fa; border-radius: 6px; border-left: 4px solid #007bff;';
+                explanationDiv.innerHTML = '<strong>💡 Erklärung:</strong> ' + q.explanation;
+                document.getElementById('singlePlayerOptions').appendChild(explanationDiv);
+            }
+            
+            // Button für nächste Frage
+            const submitBtn = document.getElementById('submitSinglePlayerBtn');
+            if (currentSinglePlayerQuestionIndex < singlePlayerQuestions.length - 1) {
+                submitBtn.innerHTML = '➡️ Nächste Frage';
+                submitBtn.onclick = nextSinglePlayerQuestion;
+            } else {
+                submitBtn.innerHTML = '🏁 Quiz beenden';
+                submitBtn.onclick = nextSinglePlayerQuestion;
+            }
+        }
+
+        function nextSinglePlayerQuestion() {
+            currentSinglePlayerQuestionIndex++;
+            singlePlayerSelectedAnswer = null;
+            updateUI();
+        }
+
+        // Vue Components
+        const LoginComponent = {
+            template: function() {
+                return `
+                    <div class="container" style="max-width: 500px; margin-top: 50px;">
+                        <div class="card">
+                            <h2 style="text-align: center; margin-bottom: 32px; color: #007bff;">
+                                🎯 IU Quiz
+                            </h2>
+                            
+                            <div id="loginError" style="display: none;" class="alert alert-error"></div>
+                            
+                            <form onsubmit="handleLogin(event)">
+                                <div class="form-group">
+                                    <label class="form-label">E-Mail oder Benutzername</label>
+                                    <input type="text" id="email" class="form-input" required placeholder="julian.schork@iu-study.org">
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Passwort</label>
+                                    <input type="password" id="password" class="form-input" required placeholder="Beliebiges Passwort">
+                                </div>
+                                
+                                <button type="submit" class="btn btn-primary" style="width: 100%;">
+                                    🚀 Anmelden
+                                </button>
+                            </form>
+                            
+                            <div style="margin-top: 24px; padding: 16px; background: #f8f9fa; border-radius: 8px;">
+                                <h4>👤 Demo-Benutzer:</h4>
+                                <p><strong>Julian:</strong> julian.schork@iu-study.org</p>
+                                <p><strong>Marie:</strong> marie.appel@iu-study.org</p>
+                                <p><strong>Felix:</strong> felix.hagen@iu-study.org</p>
+                                <p><strong>Jerôme:</strong> jerome.krueckeberg@iu-study.org</p>
+                                <p style="margin-top: 8px;"><em>💡 Tipp: Beliebiges Passwort verwenden</em></p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        };
+
+        const DashboardComponent = {
+            template: function() {
+                return `
+                    <nav class="navbar">
+                        <div class="container">
+                            <div class="navbar-content">
+                                <div class="navbar-brand">🎯 IU Quiz Dashboard</div>
+                                <div class="nav-links">
+                                    <span>👋 ${globalState.user.username}</span>
+                                    <button class="btn btn-secondary" onclick="logout()">Abmelden</button>
+                                </div>
+                            </div>
+                        </div>
+                    </nav>
+                    
+                    <div class="container">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; flex-wrap: wrap; gap: 16px;">
+                            <h1>📊 Wirtschaftsinformatik Quiz</h1>
+                            <div>
+                                <button class="btn btn-primary" onclick="showQuestionPage()">📝 Fragen</button>
+                                <button class="btn btn-primary" onclick="showSinglePlayerDifficultyModal()">🎮 Einzelspieler</button>
+                                <button class="btn btn-primary" onclick="showCreateModal()">➕ Neuen Raum erstellen</button>
+                            </div>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 32px;">
+                            <div class="card">
+                                <h3 style="margin-bottom: 16px;">🔗 Raum beitreten</h3>
+                                <div style="display: flex; gap: 12px;">
+                                    <input type="text" id="joinCode" class="form-input" placeholder="Code eingeben" style="flex: 1;">
+                                    <button class="btn btn-primary" onclick="joinRoom()">Beitreten</button>
+                                </div>
+                                <div id="joinError" style="display: none;" class="alert alert-error"></div>
+                            </div>
+                            
+                            <div class="card">
+                                <h3 style="margin-bottom: 16px;">📈 Deine Statistiken</h3>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; text-align: center;">
+                                    <div>
+                                        <div style="font-size: 24px; font-weight: 700; color: #28a745;">
+                                            ${globalState.userStats.correctAnswers}
+                                        </div>
+                                        <div style="color: #666;">Richtige Antworten</div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size: 24px; font-weight: 700; color: #dc3545;">
+                                            ${globalState.userStats.wrongAnswers}
+                                        </div>
+                                        <div style="color: #666;">Falsche Antworten</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <h2>🏠 Verfügbare Räume</h2>
+                        
+                        <div id="roomsList">
+                            ${globalState.rooms.length === 0 ? `
+                                <div class="card" style="text-align: center; padding: 48px;">
+                                    <h3>🎮 Erstellen Sie Ihren ersten Quiz-Raum!</h3>
+                                    <p style="color: #666; margin: 16px 0;">Laden Sie Kommilitonen zu einem Wirtschaftsinformatik-Quiz ein.</p>
+                                    <button class="btn btn-primary" onclick="showCreateModal()">
+                                        🚀 Ersten Raum erstellen
+                                    </button>
+                                </div>
+                            ` : globalState.rooms.map(room => `
+                                <div class="card" style="border: 2px solid #007bff; margin-bottom: 16px; position: relative;">
+                                    <div style="cursor: pointer;" onclick="enterRoom('${room.id}')">
+                                        <div style="display: flex; justify-content: space-between; margin-bottom: 12px; align-items: flex-start;">
+                                            <div>
+                                                <h3>${room.name} <small style="font-weight: normal; color: #666;">(Ersteller: ${findUserNameById(room.hostId)})</small></h3>
+                                                <span class="badge ${getDifficultyClass(room.difficulty)}" style="padding: 4px 8px; border-radius: 12px; font-size: 11px; margin-right: 8px;">
+                                                    ${getDifficultyLabel(room.difficulty)}
+                                                </span>
+                                            </div>
+                                            <span style="background: #007bff; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px;">
+                                                ${room.gameMode === 'cooperative' ? '🤝 Kooperativ' : '⚔️ Kompetitiv'}
+                                            </span>
+                                        </div>
+                                        <p><strong>🔑 Code:</strong> ${room.code}</p>
+                                        <p><strong>👥 Teilnehmer:</strong> ${room.participants.length}/${room.maxParticipants}</p>
+                                        <p><strong>❓ Fragen:</strong> ${room.questions.length}</p>
+                                    </div>
+                                    ${room.hostId === globalState.user.id ? `
+                                        <button onclick="event.stopPropagation(); deleteRoom('${room.id}')" class="btn btn-danger" style="position: absolute; bottom: 12px; right: 12px; padding: 8px 12px; font-size: 14px;">
+                                            🗑️ Raum löschen
+                                        </button>
+                                    ` : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    
+                    <div id="modalContainer"></div>
+                `;
+            }
+        };
+
+        const SinglePlayerComponent = {
+            template: function() {
+                if (currentSinglePlayerQuestionIndex >= singlePlayerQuestions.length) {
+                    // Quiz beendet - Ergebnisse anzeigen
+                    const percentage = Math.round((singlePlayerScore / singlePlayerQuestions.length) * 100);
+                    let rating = '';
+                    let ratingColor = '';
+                    
+                    if (percentage >= 90) {
+                        rating = '🏆 Hervorragend!';
+                        ratingColor = '#28a745';
+                    } else if (percentage >= 70) {
+                        rating = '🥈 Sehr gut!';
+                        ratingColor = '#17a2b8';
+                    } else if (percentage >= 50) {
+                        rating = '🥉 Gut gemacht!';
+                        ratingColor = '#ffc107';
+                    } else {
+                        rating = '💪 Weiter üben!';
+                        ratingColor = '#dc3545';
+                    }
+
+                    return `
+                        <nav class="navbar">
+                            <div class="container">
+                                <div class="navbar-content">
+                                    <div class="navbar-brand">🎮 Einzelspieler - Quiz beendet</div>
+                                    <div class="nav-links">
+                                        <button class="btn btn-secondary" onclick="showDashboard()">Zurück zum Dashboard</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </nav>
+                        
+                        <div class="container">
+                            <div class="card" style="text-align: center; padding: 48px;">
+                                <h1 style="color: ${ratingColor}; margin-bottom: 32px;">${rating}</h1>
+                                
+                                <div class="badge ${getDifficultyClass(selectedDifficulty)}" style="padding: 8px 16px; border-radius: 20px; font-size: 16px; margin-bottom: 24px;">
+                                    Schwierigkeit: ${getDifficultyLabel(selectedDifficulty)}
+                                </div>
+                                
+                                <div style="background: #f8f9fa; padding: 32px; border-radius: 12px; margin: 32px 0;">
+                                    <div style="font-size: 36px; font-weight: 700; color: #007bff; margin-bottom: 16px;">
+                                        ${singlePlayerScore} / ${singlePlayerQuestions.length}
+                                    </div>
+                                    <div style="font-size: 24px; color: #666;">
+                                        ${percentage}% richtig beantwortet
+                                    </div>
+                                </div>
+                                
+                                <div style="display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;">
+                                    <button class="btn btn-primary" onclick="showSinglePlayerDifficultyModal()" style="padding: 16px 32px;">
+                                        🔄 Nochmal spielen
+                                    </button>
+                                    <button class="btn btn-secondary" onclick="showDashboard()" style="padding: 16px 32px;">
+                                        📊 Zum Dashboard
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                // Quiz läuft - aktuelle Frage anzeigen
+                const question = singlePlayerQuestions[currentSinglePlayerQuestionIndex];
+                
+                let optionsHTML = '';
+                
+                if (question.type === 'multiple_choice') {
+                    question.options.forEach((option, index) => {
+                        optionsHTML += `
+                            <div class="answer-option" onclick="singlePlayerSelect(${index})">
+                                ${String.fromCharCode(65 + index)}) ${option}
+                            </div>
+                        `;
+                    });
+                } else if (question.type === 'true_false') {
+                    optionsHTML = `
+                        <div class="answer-option" onclick="singlePlayerSelect(0)">✅ Wahr</div>
+                        <div class="answer-option" onclick="singlePlayerSelect(1)">❌ Falsch</div>
+                    `;
+                } else if (question.type === 'text_input') {
+                    optionsHTML = `
+                        <input type="text" class="form-input" id="textInputAnswer" placeholder="Ihre Antwort eingeben..." 
+                               onchange="singlePlayerSelect(this.value)" style="margin-bottom: 16px;">
+                    `;
+                }
+
+                return `
+                    <nav class="navbar">
+                        <div class="container">
+                            <div class="navbar-content">
+                                <div class="navbar-brand">🎮 Einzelspieler - Frage ${currentSinglePlayerQuestionIndex + 1} von ${singlePlayerQuestions.length}</div>
+                                <div class="nav-links">
+                                    <span class="badge ${getDifficultyClass(selectedDifficulty)}" style="padding: 4px 12px; border-radius: 12px; font-size: 12px; margin-right: 16px;">
+                                        ${getDifficultyLabel(selectedDifficulty)}
+                                    </span>
+                                    <button class="btn btn-secondary" onclick="showDashboard()">Quiz beenden</button>
+                                </div>
+                            </div>
+                        </div>
+                    </nav>
+                    
+                    <div class="container">
+                        <div class="card">
+                            <div style="margin-bottom: 24px;">
+                                <div style="background: #f8f9fa; height: 8px; border-radius: 4px; margin-bottom: 16px;">
+                                    <div style="background: #007bff; height: 100%; border-radius: 4px; width: ${(currentSinglePlayerQuestionIndex / singlePlayerQuestions.length) * 100}%; transition: width 0.3s ease;"></div>
+                                </div>
+                                <div style="text-align: center; color: #666; font-size: 14px;">
+                                    Fortschritt: ${currentSinglePlayerQuestionIndex} von ${singlePlayerQuestions.length} | Punkte: ${singlePlayerScore}
+                                </div>
+                            </div>
+                            
+                            <div style="font-size: 20px; font-weight: 600; margin-bottom: 24px; text-align: center;">
+                                ${question.text}
+                            </div>
+                            
+                            <div id="singlePlayerOptions">
+                                ${optionsHTML}
+                            </div>
+                            
+                            <button id="submitSinglePlayerBtn" class="btn btn-primary" onclick="submitSinglePlayerAnswer()" 
+                                    disabled style="width: 100%; margin-top: 24px; font-size: 16px; padding: 16px;">
+                                ✅ Antwort bestätigen
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+        };
+
+        // Fragenverwaltung mit Schwierigkeitsgrad
+        function showQuestionPage() {
+            currentComponent = 'questions';
+            const questions = globalState.questions;
+            
+            let questionsHTML = '';
+            for (let q of questions) {
+                questionsHTML += `
+                    <div class="card" style="cursor: pointer; margin-bottom: 12px; border: 1px solid #ddd;" onclick="editQuestion(${q.id})">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                            <div style="flex: 1;">
+                                <strong style="font-size: 16px; color: #007bff;">${q.text}</strong>
+                                <span class="badge ${getDifficultyClass(q.difficulty)}" style="padding: 2px 8px; border-radius: 10px; font-size: 10px; margin-left: 8px;">
+                                    ${getDifficultyLabel(q.difficulty)}
+                                </span><br>
+                                <small style="color: #666;">
+                                    Typ: ${q.type === 'multiple_choice' ? 'Multiple Choice' : q.type === 'true_false' ? 'Wahr/Falsch' : 'Texteingabe'} | 
+                                    Zeitlimit: ${q.timeLimit}s
+                                </small>
+                                ${q.explanation ? `<br><small style="color: #28a745;"><em>Mit Erklärung</em></small>` : ''}
+                            </div>
+                            <button class="btn btn-danger" onclick="event.stopPropagation(); deleteQuestion(${q.id})" style="padding: 6px 12px; font-size: 12px;">
+                                🗑️ Löschen
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            document.getElementById('app').innerHTML = `
+                <nav class="navbar">
+                    <div class="container">
+                        <div class="navbar-content">
+                            <div class="navbar-brand">📝 IU Quiz - Fragenverwaltung</div>
+                            <div class="nav-links">
+                                <button class="btn btn-secondary" onclick="showDashboard()">🏠 Zurück zum Dashboard</button>
+                            </div>
+                        </div>
+                    </div>
+                </nav>
+                
+                <div class="container">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; flex-wrap: wrap; gap: 16px;">
+                        <h1>📋 Fragenverwaltung</h1>
+                        <button class="btn btn-primary" onclick="addNewQuestion()">➕ Neue Frage</button>
+                    </div>
+                    
+                    <div class="card" style="margin-bottom: 24px; background: #f8f9fa;">
+                        <h3>💡 Hinweise zur Fragenverwaltung</h3>
+                        <ul style="margin: 12px 0; padding-left: 20px;">
+                            <li>Klicken Sie auf eine Frage, um sie zu bearbeiten</li>
+                            <li>Wählen Sie einen angemessenen Schwierigkeitsgrad</li>
+                            <li>Fügen Sie Erklärungen hinzu, um das Lernen zu fördern</li>
+                            <li>Passen Sie Zeitlimits an die Schwierigkeit an</li>
+                        </ul>
+                    </div>
+                    
+                    <h2 style="margin-bottom: 16px;">Alle Fragen (${questions.length})</h2>
+                    
+                    <div id="questionList">
+                        ${questions.length === 0 ? `
+                            <div class="card" style="text-align: center; padding: 48px;">
+                                <h3>📝 Noch keine Fragen vorhanden</h3>
+                                <p style="color: #666; margin: 16px 0;">Erstellen Sie die erste Frage für Ihr Quiz!</p>
+                                <button class="btn btn-primary" onclick="addNewQuestion()">
+                                    ➕ Erste Frage erstellen
+                                </button>
+                            </div>
+                        ` : questionsHTML}
+                    </div>
+                </div>
+                
+                <div id="questionModal"></div>
+            `;
+        }
+
+        function addNewQuestion() {
+            editQuestion(null);
+        }
+
+        function editQuestion(id) {
+            const questions = globalState.questions;
+            let question = null;
+            
+            if (id) {
+                question = questions.find(q => q.id == id);
+            }
+            
+            const qText = question ? question.text : '';
+            const qType = question ? question.type : 'multiple_choice';
+            const qOptions = question ? question.options : ['', ''];
+            const qAnswer = question ? question.correctAnswer : 0;
+            const qTime = question ? question.timeLimit : 30;
+            const qExplanation = question ? question.explanation : '';
+            const qDifficulty = question ? question.difficulty : 'easy';
+            const qId = question ? question.id : Date.now();
+
+            let optionsHTML = '';
+            if (qType !== 'text_input') {
+                for (let i = 0; i < Math.max(qOptions.length, 2); i++) {
+                    optionsHTML += `
+                        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                            <input type="text" class="form-input option-input" value="${qOptions[i] || ''}" placeholder="Option ${i + 1}" style="flex: 1;" />
+                            <label style="display: flex; align-items: center; gap: 4px;">
+                                <input type="radio" name="correctAnswer" value="${i}" ${qAnswer == i ? 'checked' : ''} />
+                                Richtig
+                            </label>
+                        </div>
+                    `;
+                }
+            }
+
+            document.getElementById('questionModal').innerHTML = `
+                <div class="modal" onclick="closeQuestionModal(event)">
+                    <div class="modal-content">
+                        <h2 style="margin-bottom: 24px; color: #007bff;">
+                            ${id ? '✏️ Frage bearbeiten' : '➕ Neue Frage erstellen'}
+                        </h2>
+                        
+                        <form onsubmit="saveQuestion(event, ${qId})">
+                            <div class="form-group">
+                                <label class="form-label">Fragetext</label>
+                                <textarea class="form-input" id="qText" required placeholder="Geben Sie hier Ihre Frage ein..." rows="3" style="resize: vertical;">${qText}</textarea>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Fragetyp</label>
+                                <select id="qType" class="form-input" onchange="updateQuestionType()">
+                                    <option value="multiple_choice" ${qType === 'multiple_choice' ? 'selected' : ''}>Multiple Choice</option>
+                                    <option value="true_false" ${qType === 'true_false' ? 'selected' : ''}>Wahr/Falsch</option>
+                                    <option value="text_input" ${qType === 'text_input' ? 'selected' : ''}>Texteingabe</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Schwierigkeitsgrad</label>
+                                <select id="qDifficulty" class="form-input">
+                                    <option value="easy" ${qDifficulty === 'easy' ? 'selected' : ''}>🟢 Leicht</option>
+                                    <option value="medium" ${qDifficulty === 'medium' ? 'selected' : ''}>🟡 Mittel</option>
+                                    <option value="hard" ${qDifficulty === 'hard' ? 'selected' : ''}>🔴 Schwer</option>
+                                </select>
+                            </div>
+                            
+                            <div id="optionsContainer" class="form-group">
+                                <label class="form-label">Antwortoptionen</label>
+                                <div id="optionsList">
+                                    ${optionsHTML}
+                                </div>
+                                <button type="button" onclick="addOption()" class="btn btn-secondary" style="margin-top: 8px;" id="addOptionBtn">
+                                    ➕ Option hinzufügen
+                                </button>
+                            </div>
+                            
+                            <div id="textAnswerContainer" class="form-group" style="display: ${qType === 'text_input' ? 'block' : 'none'};">
+                                <label class="form-label">Richtige Antwort</label>
+                                <input type="text" class="form-input" id="textAnswer" value="${qType === 'text_input' ? qAnswer : ''}" placeholder="Die korrekte Antwort eingeben..." />
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Zeitlimit (Sekunden)</label>
+                                <input type="number" class="form-input" id="qTime" value="${qTime}" min="5" max="300" required />
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Erklärung (optional)</label>
+                                <textarea class="form-input" id="qExplanation" rows="3" placeholder="Erklärung zur richtigen Antwort..." style="resize: vertical;">${qExplanation}</textarea>
+                            </div>
+                            
+                            <div style="display: flex; gap: 12px; margin-top: 32px;">
+                                <button type="button" onclick="closeQuestionModal()" class="btn btn-secondary" style="flex: 1;">
+                                    ❌ Abbrechen
+                                </button>
+                                <button type="submit" class="btn btn-primary" style="flex: 1;">
+                                    ✅ Speichern
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+
+            updateQuestionType();
+        }
+
+        function updateQuestionType() {
+            const type = document.getElementById('qType').value;
+            const optionsContainer = document.getElementById('optionsContainer');
+            const textAnswerContainer = document.getElementById('textAnswerContainer');
+            const optionsList = document.getElementById('optionsList');
+            const addOptionBtn = document.getElementById('addOptionBtn');
+
+            if (type === 'text_input') {
+                optionsContainer.style.display = 'none';
+                textAnswerContainer.style.display = 'block';
+            } else {
+                optionsContainer.style.display = 'block';
+                textAnswerContainer.style.display = 'none';
+                
+                if (type === 'true_false') {
+                    optionsList.innerHTML = `
+                        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                            <input type="text" class="form-input option-input" value="Wahr" readonly style="flex: 1;" />
+                            <label style="display: flex; align-items: center; gap: 4px;">
+                                <input type="radio" name="correctAnswer" value="0" />
+                                Richtig
+                            </label>
+                        </div>
+                        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                            <input type="text" class="form-input option-input" value="Falsch" readonly style="flex: 1;" />
+                            <label style="display: flex; align-items: center; gap: 4px;">
+                                <input type="radio" name="correctAnswer" value="1" />
+                                Richtig
+                            </label>
+                        </div>
+                    `;
+                    addOptionBtn.style.display = 'none';
+                } else {
+                    addOptionBtn.style.display = 'inline-block';
+                }
+            }
+        }
+
+        function addOption() {
+            const optionsList = document.getElementById('optionsList');
+            const currentOptions = optionsList.querySelectorAll('.option-input').length;
+            
+            if (currentOptions < 6) {
+                const optionDiv = document.createElement('div');
+                optionDiv.style.cssText = 'display: flex; gap: 8px; align-items: center; margin-bottom: 8px;';
+                optionDiv.innerHTML = `
+                    <input type="text" class="form-input option-input" placeholder="Option ${currentOptions + 1}" style="flex: 1;" />
+                    <label style="display: flex; align-items: center; gap: 4px;">
+                        <input type="radio" name="correctAnswer" value="${currentOptions}" />
+                        Richtig
+                    </label>
+                    <button type="button" onclick="this.parentElement.remove()" class="btn btn-danger" style="padding: 6px 8px; font-size: 12px;">✕</button>
+                `;
+                optionsList.appendChild(optionDiv);
+            }
+        }
+
+        function saveQuestion(event, id) {
+            event.preventDefault();
+            
+            const qText = document.getElementById('qText').value.trim();
+            const qType = document.getElementById('qType').value;
+            const qTime = parseInt(document.getElementById('qTime').value);
+            const qExplanation = document.getElementById('qExplanation').value.trim();
+            const qDifficulty = document.getElementById('qDifficulty').value;
+            
+            if (!qText) {
+                alert('Bitte geben Sie einen Fragetext ein.');
+                return;
+            }
+            
+            let qAnswer;
+            let qOptions = [];
+            
+            if (qType === 'text_input') {
+                qAnswer = document.getElementById('textAnswer').value.trim();
+                if (!qAnswer) {
+                    alert('Bitte geben Sie die richtige Antwort ein.');
+                    return;
+                }
+            } else {
+                const optionInputs = document.querySelectorAll('.option-input');
+                optionInputs.forEach(input => {
+                    if (input.value.trim()) {
+                        qOptions.push(input.value.trim());
+                    }
+                });
+                
+                if (qOptions.length < 2) {
+                    alert('Mindestens zwei Antwortoptionen sind erforderlich.');
+                    return;
+                }
+                
+                // Prüfe ob eine Antwort ausgewählt ist oder ob es eine bestehende Frage ist
+                const selectedAnswer = document.querySelector('input[name="correctAnswer"]:checked');
+                const existingQuestion = globalState.questions.find(q => q.id == id);
+                
+                if (!selectedAnswer && !existingQuestion) {
+                    alert('Bitte wählen Sie die richtige Antwort aus.');
+                    return;
+                }
+                
+                // Verwende ausgewählte Antwort oder behalte die bestehende bei
+                if (selectedAnswer) {
+                    qAnswer = parseInt(selectedAnswer.value);
+                    if (qAnswer >= qOptions.length) {
+                        alert('Ungültige Auswahl für die richtige Antwort.');
+                        return;
+                    }
+                } else if (existingQuestion) {
+                    // Behalte die bestehende Antwort bei, falls keine neue ausgewählt wurde
+                    qAnswer = existingQuestion.correctAnswer;
+                    // Stelle sicher, dass der Index noch gültig ist
+                    if (qAnswer >= qOptions.length) {
+                        qAnswer = 0; // Fallback auf erste Option
+                    }
+                }
+            }
+            
+            const existingQuestionIndex = globalState.questions.findIndex(q => q.id == id);
+            
+            const questionData = {
+                id: id,
+                text: qText,
+                type: qType,
+                options: qOptions,
+                correctAnswer: qAnswer,
+                timeLimit: qTime,
+                explanation: qExplanation,
+                difficulty: qDifficulty
+            };
+            
+            if (existingQuestionIndex !== -1) {
+                globalState.questions[existingQuestionIndex] = questionData;
+            } else {
+                globalState.questions.push(questionData);
+            }
+            
+            localStorage.setItem('quizQuestions', JSON.stringify(globalState.questions));
+            
+            closeQuestionModal();
+            alert('Frage erfolgreich gespeichert!');
+            showQuestionPage();
+        }
+
+        function deleteQuestion(id) {
+            if (confirm('Sind Sie sicher, dass Sie diese Frage löschen möchten?')) {
+                globalState.questions = globalState.questions.filter(q => q.id != id);
+                localStorage.setItem('quizQuestions', JSON.stringify(globalState.questions));
+                alert('Frage gelöscht!');
+                showQuestionPage();
+            }
+        }
+
+        function closeQuestionModal(event) {
+            if (event && event.target.className !== 'modal') return;
+            document.getElementById('questionModal').innerHTML = '';
+        }
+
+        function showDashboard() {
+            currentComponent = 'dashboard';
+            updateUI();
+        }
+
+        // Event Handlers
+        function handleLogin(event) {
+            event.preventDefault();
+            const authStore = useAuth();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            const success = authStore.login({ email, password });
+            
+            if (success) {
+                currentComponent = 'dashboard';
+                updateUI();
+            } else {
+                document.getElementById('loginError').style.display = 'block';
+                document.getElementById('loginError').innerHTML = '❌ Anmeldung fehlgeschlagen. Verwenden Sie einen Demo-Benutzer.';
+            }
+        }
+
+        function showCreateModal() {
+            document.getElementById('modalContainer').innerHTML = `
+                <div class="modal" onclick="closeModal(event)">
+                    <div class="modal-content">
+                        <h2 style="margin-bottom: 24px;">🏠 Neuen Quiz-Raum erstellen</h2>
+                        
+                        <form onsubmit="createRoom(event)">
+                            <div class="form-group">
+                                <label class="form-label">Raum Name</label>
+                                <input type="text" id="roomName" class="form-input" required placeholder="Wirtschaftsinformatik Grundlagen">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Schwierigkeitsgrad</label>
+                                <select id="roomDifficulty" class="form-input">
+                                    <option value="easy">🟢 Leicht</option>
+                                    <option value="medium">🟡 Mittel</option>
+                                    <option value="hard">🔴 Schwer</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Spielmodus</label>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                                    <label style="cursor: pointer; padding: 16px; border: 2px solid #007bff; border-radius: 8px; text-align: center;">
+                                        <input type="radio" name="gameMode" value="cooperative" checked style="display: none;">
+                                        <div style="font-weight: 600; color: #007bff;">🤝 Kooperativ</div>
+                                    </label>
+                                    <label style="cursor: pointer; padding: 16px; border: 2px solid #ddd; border-radius: 8px; text-align: center;">
+                                        <input type="radio" name="gameMode" value="competitive" style="display: none;">
+                                        <div style="font-weight: 600; color: #dc3545;">⚔️ Kompetitiv</div>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Max. Teilnehmer</label>
+                                <input type="number" id="maxParticipants" class="form-input" value="8" min="2" max="20">
+                            </div>
+                            
+                            <div style="display: flex; gap: 12px;">
+                                <button type="button" class="btn btn-secondary" onclick="closeModal()" style="flex: 1;">Abbrechen</button>
+                                <button type="submit" class="btn btn-primary" style="flex: 1;">✅ Raum erstellen</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+        }
+
+        function createRoom(event) {
+            event.preventDefault();
+            const quizStore = useQuiz();
+            
+            const difficulty = document.getElementById('roomDifficulty').value;
+            // Verwende trim() beim Filtern
+            const questionsInDifficulty = globalState.questions.filter(q => 
+                (q.difficulty || '').trim().toLowerCase() === difficulty.trim().toLowerCase()
+            );
+            
+            if (questionsInDifficulty.length === 0) {
+                alert(`Keine Fragen in der Schwierigkeit "${getDifficultyLabel(difficulty)}" verfügbar! Bitte erstellen Sie zunächst Fragen in dieser Kategorie.`);
+                return;
+            }
+            
+            const room = quizStore.createRoom({
+                name: document.getElementById('roomName').value,
+                gameMode: document.querySelector('input[name="gameMode"]:checked').value,
+                maxParticipants: parseInt(document.getElementById('maxParticipants').value),
+                difficulty: difficulty,
+                hostId: globalState.user.id
+            });
+            
+            closeModal();
+            alert(`🎉 Raum "${room.name}" erstellt!\n🔑 Code: ${room.code}\n📊 Schwierigkeit: ${getDifficultyLabel(difficulty)}\n❓ ${room.questions.length} Fragen verfügbar`);
+            updateUI();
+        }
+
+        function joinRoom() {
+            const code = document.getElementById('joinCode').value.toUpperCase();
+            const quizStore = useQuiz();
+            
+            const room = quizStore.joinRoom(code, globalState.user.id);
+            if (room) {
+                alert(`🎉 Raum "${room.name}" beigetreten!\n📊 Schwierigkeit: ${getDifficultyLabel(room.difficulty)}`);
+                updateUI();
+            } else {
+                document.getElementById('joinError').style.display = 'block';
+                document.getElementById('joinError').innerHTML = '❌ Raum nicht gefunden';
+            }
+        }
+
+        function enterRoom(roomId) {
+            const room = globalState.rooms.find(r => r.id == roomId);
+            if (room) {
+                alert(`🎯 Quiz-Raum "${room.name}" betreten!\n\n📊 Schwierigkeit: ${getDifficultyLabel(room.difficulty)}\n🎮 Modus: ${room.gameMode === 'cooperative' ? 'Kooperativ - gemeinsam lernen' : 'Kompetitiv - gegeneinander antreten'}\n❓ ${room.questions.length} Fragen verfügbar`);
+            }
+        }
+
+        function logout() {
+            const authStore = useAuth();
+            authStore.logout();
+            currentComponent = 'login';
+            updateUI();
+        }
+
+        function closeModal(event) {
+            if (event && event.target.className !== 'modal') return;
+            document.getElementById('modalContainer').innerHTML = '';
+        }
+
+        // Main App Rendering
+        function renderCurrentComponent() {
+            const app = document.getElementById('app');
+            
+            if (currentComponent === 'login') {
+                app.innerHTML = LoginComponent.template();
+            } else if (currentComponent === 'dashboard') {
+                app.innerHTML = DashboardComponent.template();
+            } else if (currentComponent === 'singleplayer') {
+                app.innerHTML = SinglePlayerComponent.template();
+            } else if (currentComponent === 'questions') {
+                return;
+            }
+        }
+
+        function startVueApp() {
+            console.log('🚀 Starting IU Quiz Application with Vue.js');
+            
+            const savedUser = localStorage.getItem('quizUser');
+            const savedRooms = localStorage.getItem('quizRooms');
+            const savedQuestions = localStorage.getItem('quizQuestions');
+            
+            if (savedUser) {
+                try {
+                    globalState.user = JSON.parse(savedUser);
+                    loadUserStats();
+                    currentComponent = 'dashboard';
+                } catch (e) {
+                    localStorage.removeItem('quizUser');
+                }
+            }
+            
+            if (savedRooms) {
+                try {
+                    globalState.rooms = JSON.parse(savedRooms);
+                } catch (e) {
+                    globalState.rooms = [];
+                }
+            }
+            
+            if (savedQuestions) {
+                try {
+                    globalState.questions = JSON.parse(savedQuestions);
+                } catch (e) {
+                    // Keep default questions if loading fails
+                }
+            }
+            
+            renderCurrentComponent();
+            console.log('✅ IU Quiz App successfully initialized with Vue.js!');
+        }
+
+        window.addEventListener('load', function() {
+            console.log('🔄 Initializing IU Quiz Application...');
+            
+            const app = Vue.createApp({
+                setup() {
+                    console.log('📝 Vue.js Composition API Setup');
+                    return {};
+                }
+            });
+            
+            app.mount('#app');
+        });
+    </script>
+</body>
+</html>
