@@ -1,0 +1,26 @@
+[
+    {
+        "id": 1,
+        "username": "Julian",
+        "email": "julian.schork@iu-study.org",
+        "password_hash":"1"
+    },
+    {
+        "id": 2,
+        "username": "Marie",
+        "email": "marie.appel@iu-study.org",
+        "password_hash":"2"
+    },
+    {
+        "id": 3,
+        "username": "Felix",
+        "email": "felix.hagen@iu-study.org",
+        "password_hash":"3"
+    },
+    {
+        "id": 4,
+        "username": "Jerôme",
+        "email": "jerome.krueckeberg@iu-study.org",
+        "password_hash":"4"
+    }
+]
