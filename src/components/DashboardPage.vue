@@ -2,11 +2,14 @@
   <NavbarComponent></NavbarComponent>
 
   <!-- JK: Teleport wird genutzt, um das SinglePlayerDifficultyModal über die DashboardPage zu lagern. Der Boolean 
-  showSingleplayerModal ist dafür verantwortlich und wird über die vue.js directive v-model für das SinglePlayerDifficultyModal 
+  isShowingSinglePlayerModal ist dafür verantwortlich und wird über die vue.js directive v-model für das SinglePlayerDifficultyModal 
   bearbeitbar gemacht -->
   <Teleport to="body">
-    <div v-if="showSingleplayerModal" class="modal">
-      <singleplayer-difficulty-modal v-model="showSingleplayerModal"></singleplayer-difficulty-modal>
+    <div v-if="isShowingSinglePlayerModal" class="modal">
+      <singleplayer-difficulty-modal v-model="isShowingSinglePlayerModal"></singleplayer-difficulty-modal>
+    </div>
+    <div v-if="isShowingCreateQuizRoomModal" class="modal">
+      <create-quiz-room-modal v-model="isShowingCreateQuizRoomModal"></create-quiz-room-modal>
     </div>
   </Teleport>
   <div class="container">
@@ -16,7 +19,7 @@
       <div>
         <button class="btn btn-primary" @click.prevent="showQuestionPage()">📝 Fragen</button>
         <button class="btn btn-primary" @click.prevent="showSinglePlayerDifficultyModal()">🎮 Einzelspieler</button>
-        <button class="btn btn-primary" onclick="showCreateModal()">➕ Neuen Raum erstellen</button>
+        <button class="btn btn-primary" @click.prevent="showCreateQuizRoomModal()">➕ Neuen Raum erstellen</button>
       </div>
     </div>
 
@@ -100,22 +103,28 @@ import { useSessionStore } from '@/stores/session'
 import router from '@/router/index'
 import NavbarComponent from './NavbarComponent.vue';
 import SingleplayerDifficultyModal from './SingleplayerDifficultyModal.vue'
+import CreateQuizRoomModal from './CreateQuizRoomModal.vue'
 
 export default {
   components: {
-    NavbarComponent, SingleplayerDifficultyModal
+    NavbarComponent, SingleplayerDifficultyModal, CreateQuizRoomModal
   },
   data() {
     const sessionStore = useSessionStore()
 
     return {
       sessionStore,
-      showSingleplayerModal: false
+      isShowingSinglePlayerModal: false,
+      isShowingCreateQuizRoomModal: false
     }
   },
   methods: {
     showSinglePlayerDifficultyModal() {
-      this.showSingleplayerModal = true
+      this.isShowingSinglePlayerModal = true;
+    },
+    showCreateQuizRoomModal(){
+      this.isShowingCreateQuizRoomModal = true;
+      console.log("showCreateQuizRoomModal Called")
     },
     logout() {
       this.sessionStore.loggedIn = false;
