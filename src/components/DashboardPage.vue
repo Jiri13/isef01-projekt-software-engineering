@@ -56,42 +56,40 @@
     <h2>🏠 Verfügbare Räume</h2>
 
     <div id="roomsList">
-      ${globalState.rooms.length === 0 ? `
-      <div class="card" style="text-align: center; padding: 48px;">
+      <div v-if="rooms.length === 0" class="card" style="text-align: center; padding: 48px;">
         <h3>🎮 Erstellen Sie Ihren ersten Quiz-Raum!</h3>
         <p style="color: #666; margin: 16px 0;">Laden Sie Kommilitonen zu einem Wirtschaftsinformatik-Quiz ein.</p>
         <button class="btn btn-primary" onclick="showCreateModal()">
           🚀 Ersten Raum erstellen
         </button>
       </div>
-      ` : globalState.rooms.map(room => `
-      <div class="card" style="border: 2px solid #007bff; margin-bottom: 16px; position: relative;">
+      <div v-for="room in rooms" class="card"
+        style="border: 2px solid #007bff; margin-bottom: 16px; position: relative;">
         <div style="cursor: pointer;" onclick="enterRoom('${room.id}')">
           <div style="display: flex; justify-content: space-between; margin-bottom: 12px; align-items: flex-start;">
             <div>
-              <h3>${room.name} <small style="font-weight: normal; color: #666;">(Ersteller:
-                  ${findUserNameById(room.hostId)})</small></h3>
-              <span class="badge ${getDifficultyClass(room.difficulty)}"
+              <h3>{{ room.name }} <small style="font-weight: normal; color: #666;">Ersteller:
+                  {{ getUserNameFromHostID(users, room.hostID) }}</small></h3>
+              <span :class="`difficulty-${room.difficulty}`"
                 style="padding: 4px 8px; border-radius: 12px; font-size: 11px; margin-right: 8px;">
-                ${getDifficultyLabel(room.difficulty)}
+                {{ getDifficultyText(room.difficulty)}}
               </span>
             </div>
             <span style="background: #007bff; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px;">
-              ${room.gameMode === 'cooperative' ? '🤝 Kooperativ' : '⚔️ Kompetitiv'}
+              {{ room.gameMode === 'cooperative' ? '🤝 Kooperativ' : '⚔️ Kompetitiv' }}
             </span>
           </div>
-          <p><strong>🔑 Code:</strong> ${room.code}</p>
+          <p><strong>🔑 Code:</strong> {{ room.code }}</p>
           <p><strong>👥 Teilnehmer:</strong> ${room.participants.length}/${room.maxParticipants}</p>
           <p><strong>❓ Fragen:</strong> ${room.questions.length}</p>
         </div>
-        ${room.hostId === globalState.user.id ? `
-        <button onclick="event.stopPropagation(); deleteRoom('${room.id}')" class="btn btn-danger"
+        <button v-if="room.hostID === this.sessionStore.userID"
+          onclick="event.stopPropagation(); deleteRoom('${room.id}')" class="btn btn-danger"
           style="position: absolute; bottom: 12px; right: 12px; padding: 8px 12px; font-size: 14px;">
           🗑️ Raum löschen
         </button>
-        ` : ''}
       </div>
-      `).join('')}
+      <!-- `).join('')} -->
     </div>
   </div>
 
@@ -104,6 +102,8 @@ import router from '@/router/index'
 import NavbarComponent from './NavbarComponent.vue';
 import SingleplayerDifficultyModal from './SingleplayerDifficultyModal.vue'
 import CreateQuizRoomModal from './CreateQuizRoomModal.vue'
+import usersData from '../files/users.json'
+import roomData from '../files/rooms.json'
 
 export default {
   components: {
@@ -115,14 +115,16 @@ export default {
     return {
       sessionStore,
       isShowingSinglePlayerModal: false,
-      isShowingCreateQuizRoomModal: false
+      isShowingCreateQuizRoomModal: false,
+      users: usersData,
+      rooms: roomData
     }
   },
   methods: {
     showSinglePlayerDifficultyModal() {
       this.isShowingSinglePlayerModal = true;
     },
-    showCreateQuizRoomModal(){
+    showCreateQuizRoomModal() {
       this.isShowingCreateQuizRoomModal = true;
       console.log("showCreateQuizRoomModal Called")
     },
@@ -132,6 +134,18 @@ export default {
     },
     showQuestionPage() {
       router.push('/questions')
+    },
+    getUserNameFromHostID(userArray, hostID) {
+      const foundUser = userArray.find(user => user.userID == hostID);
+      return foundUser.first_name;
+    },
+    getDifficultyText(difficulty){
+      switch (difficulty) {
+        case 'easy': return 'Leicht';
+        case 'medium': return 'Mittel';
+        case 'hard': return 'Schwer';
+        default: return difficulty;
+      }
     }
 
   }

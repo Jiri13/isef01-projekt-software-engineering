@@ -13,10 +13,12 @@ const app = createApp(App);
 app.use(pinia);
 app.use(router);
 
-watch(pinia.state, (state) => {
-    localStorage.setItem("loggedIn", JSON.stringify(state.loggedIn));
-},
-{ deep:true });
+// Alt, noch bevor piniaPluginPersistedState genutzt worden ist
+// watch(pinia.state, (state) => {
+//     localStorage.setItem("loggedIn", JSON.stringify(state.loggedIn));
+//     localStorage.setItem("userID", JSON.stringify(state.userID));
+// },
+// { deep:true });
 
 app.mount('#app');
 
