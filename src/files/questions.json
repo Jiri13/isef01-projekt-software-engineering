@@ -12,7 +12,8 @@
         "correctAnswer": 0,
         "explanation": "Ein Computer ist ein elektronisches Gerät zur Datenverarbeitung.",
         "timeLimit": 30,
-        "difficulty": "easy"
+        "difficulty": "easy",
+        "rating": 5
     },
     {
         "id": 2,
@@ -25,7 +26,8 @@
         "correctAnswer": 0,
         "explanation": "Microsoft Word ist tatsächlich ein weit verbreitetes Textverarbeitungsprogramm.",
         "timeLimit": 20,
-        "difficulty": "easy"
+        "difficulty": "easy",
+        "rating": 5
     },
     {
         "id": 3,
@@ -40,7 +42,8 @@
         "correctAnswer": 0,
         "explanation": "Business Intelligence umfasst Technologien und Praktiken zur Datenanalyse für bessere Geschäftsentscheidungen.",
         "timeLimit": 45,
-        "difficulty": "medium"
+        "difficulty": "medium",
+        "rating": 5
     },
     {
         "id": 4,
@@ -53,7 +56,8 @@
         "correctAnswer": 0,
         "explanation": "Enterprise Resource Planning (ERP) Systeme integrieren alle Geschäftsprozesse in einer einheitlichen Lösung.",
         "timeLimit": 30,
-        "difficulty": "medium"
+        "difficulty": "medium",
+        "rating": 5
     },
     {
         "id": 5,
@@ -68,7 +72,8 @@
         "correctAnswer": 0,
         "explanation": "OLTP (Online Transaction Processing) ist für transaktionale Operationen optimiert, während OLAP (Online Analytical Processing) für analytische Abfragen designed ist.",
         "timeLimit": 60,
-        "difficulty": "hard"
+        "difficulty": "hard",
+        "rating": 5
     },
     {
         "id": 6,
@@ -83,6 +88,7 @@
         "correctAnswer": 2,
         "explanation": "NoSQL-Datenbanken verwenden typischerweise keine relationalen Tabellenstrukturen, sondern alternative Datenmodelle.",
         "timeLimit": 50,
-        "difficulty": "hard"
+        "difficulty": "hard",
+        "rating": 5
     }
 ]

@@ -7,7 +7,8 @@
         "participants": [4],
         "gameMode": "cooperative",
         "maxParticipants": 8,
-        "difficulty": "easy"
-
+        "questions": [],
+        "difficulty": "easy",
+        "createdAt": 0
     }
 ]

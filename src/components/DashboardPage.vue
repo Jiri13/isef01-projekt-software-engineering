@@ -1,6 +1,6 @@
 <template>
-  <NavbarComponent></NavbarComponent>
-
+  <DashboardNavbar></DashboardNavbar>
+  <button @click.prevent="debug()">Debug</button>
   <!-- JK: Teleport wird genutzt, um das SinglePlayerDifficultyModal über die DashboardPage zu lagern. Der Boolean 
   isShowingSinglePlayerModal ist dafür verantwortlich und wird über die vue.js directive v-model für das SinglePlayerDifficultyModal 
   bearbeitbar gemacht -->
@@ -39,13 +39,13 @@
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; text-align: center;">
           <div>
             <div style="font-size: 24px; font-weight: 700; color: #28a745;">
-              ${globalState.userStats.correctAnswers}
+              {{ getUserStatsFromID(sessionStore.userID).correctAnswers }}
             </div>
             <div style="color: #666;">Richtige Antworten</div>
           </div>
           <div>
             <div style="font-size: 24px; font-weight: 700; color: #dc3545;">
-              ${globalState.userStats.wrongAnswers}
+              {{ getUserStatsFromID(sessionStore.userID).wrongAnswers }}
             </div>
             <div style="color: #666;">Falsche Antworten</div>
           </div>
@@ -59,20 +59,20 @@
       <div v-if="rooms.length === 0" class="card" style="text-align: center; padding: 48px;">
         <h3>🎮 Erstellen Sie Ihren ersten Quiz-Raum!</h3>
         <p style="color: #666; margin: 16px 0;">Laden Sie Kommilitonen zu einem Wirtschaftsinformatik-Quiz ein.</p>
-        <button class="btn btn-primary" onclick="showCreateModal()">
+        <button class="btn btn-primary" @click.prevent="showCreateQuizRoomModal()">
           🚀 Ersten Raum erstellen
         </button>
       </div>
       <div v-for="room in rooms" class="card"
         style="border: 2px solid #007bff; margin-bottom: 16px; position: relative;">
-        <div style="cursor: pointer;" onclick="enterRoom('${room.id}')">
+        <div style="cursor: pointer;" @click.prevent="enterRoom(room.id)">
           <div style="display: flex; justify-content: space-between; margin-bottom: 12px; align-items: flex-start;">
             <div>
               <h3>{{ room.name }} <small style="font-weight: normal; color: #666;">Ersteller:
-                  {{ getUserNameFromHostID(users, room.hostID) }}</small></h3>
+                  {{ getUserNameFromHostID(room.hostID) }}</small></h3>
               <span :class="`difficulty-${room.difficulty}`"
                 style="padding: 4px 8px; border-radius: 12px; font-size: 11px; margin-right: 8px;">
-                {{ getDifficultyText(room.difficulty)}}
+                {{ getDifficultyText(room.difficulty) }}
               </span>
             </div>
             <span style="background: #007bff; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px;">
@@ -80,26 +80,23 @@
             </span>
           </div>
           <p><strong>🔑 Code:</strong> {{ room.code }}</p>
-          <p><strong>👥 Teilnehmer:</strong> ${room.participants.length}/${room.maxParticipants}</p>
-          <p><strong>❓ Fragen:</strong> ${room.questions.length}</p>
+          <p><strong>👥 Teilnehmer:</strong> {{ room.participants.length }}/{{ room.maxParticipants }}</p>
+          <p><strong>❓ Fragen:</strong> {{ room.questions.length }}</p>
         </div>
-        <button v-if="room.hostID === this.sessionStore.userID"
-          onclick="event.stopPropagation(); deleteRoom('${room.id}')" class="btn btn-danger"
+        <button v-if="room.hostID === this.sessionStore.userID" @click.prevent="deleteRoom(room.id)"
+          class="btn btn-danger"
           style="position: absolute; bottom: 12px; right: 12px; padding: 8px 12px; font-size: 14px;">
           🗑️ Raum löschen
         </button>
       </div>
-      <!-- `).join('')} -->
     </div>
   </div>
-
-  <div id="modalContainer"></div>
 </template>
 
 <script>
 import { useSessionStore } from '@/stores/session'
 import router from '@/router/index'
-import NavbarComponent from './NavbarComponent.vue';
+import DashboardNavbar from './DashboardNavbar.vue'; //rename
 import SingleplayerDifficultyModal from './SingleplayerDifficultyModal.vue'
 import CreateQuizRoomModal from './CreateQuizRoomModal.vue'
 import usersData from '../files/users.json'
@@ -107,7 +104,7 @@ import roomData from '../files/rooms.json'
 
 export default {
   components: {
-    NavbarComponent, SingleplayerDifficultyModal, CreateQuizRoomModal
+    DashboardNavbar, SingleplayerDifficultyModal, CreateQuizRoomModal
   },
   data() {
     const sessionStore = useSessionStore()
@@ -121,6 +118,9 @@ export default {
     }
   },
   methods: {
+    debug() {
+      console.log(this.getUserStatsFromID(this.sessionStore.userID))
+    },
     showSinglePlayerDifficultyModal() {
       this.isShowingSinglePlayerModal = true;
     },
@@ -128,23 +128,36 @@ export default {
       this.isShowingCreateQuizRoomModal = true;
       console.log("showCreateQuizRoomModal Called")
     },
-    logout() {
-      this.sessionStore.loggedIn = false;
-      router.push('/')
-    },
     showQuestionPage() {
       router.push('/questions')
     },
-    getUserNameFromHostID(userArray, hostID) {
-      const foundUser = userArray.find(user => user.userID == hostID);
+    getUserNameFromHostID(hostID) {
+      const foundUser = this.users.find(user => user.userID === hostID);
       return foundUser.first_name;
     },
-    getDifficultyText(difficulty){
+    getUserStatsFromID(ID) {
+      const foundUser = this.users.find(user => user.userID === ID);
+      return foundUser.stats;
+    },
+    getDifficultyText(difficulty) {
       switch (difficulty) {
         case 'easy': return 'Leicht';
         case 'medium': return 'Mittel';
         case 'hard': return 'Schwer';
         default: return difficulty;
+      }
+    },
+    enterRoom(roomID) {
+      const room = this.rooms.find(room => room.id === roomID);
+      if (room) {
+        alert("🎯 Quiz-Raum " + room.name + " betreten!\n\n📊 Schwierigkeit: " + this.getDifficultyText(room.difficulty) + "\n🎮 Modus: " + (room.gameMode === 'cooperative' ? 'Kooperativ - gemeinsam lernen' : 'Kompetitiv - gegeneinander antreten') + "\n❓" + room.questions.length + " Fragen verfügbar");
+        // Enter Multiplayermode in correct room
+      }
+    },
+    deleteRoom(roomID) {
+      if (confirm('Möchten Sie diesen Raum wirklich löschen?')) {
+        // Entferne Raum aus Datenbank
+        alert('Raum wurde gelöscht');
       }
     }
 

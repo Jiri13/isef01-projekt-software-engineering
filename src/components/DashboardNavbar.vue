@@ -4,7 +4,8 @@
             <div class="navbar-content">
                 <div @click.prevent="returnToDashboard()" class="navbar-brand">🎯 IU Quiz</div>
                 <div class="nav-links">
-                    <span v-if="sessionStore.userID && usersData[sessionStore.userID -1]">👋 {{ usersData[sessionStore.userID - 1].first_name }}</span>
+                    <span v-if="sessionStore.userID && usersData[sessionStore.userID - 1]">👋 {{
+                        usersData[sessionStore.userID - 1].first_name }}</span>
                     <button class="btn btn-secondary" @click.prevent="logout()">Abmelden</button>
                     <button @click.prevent="debug()">Debug</button>
                 </div>
@@ -30,15 +31,13 @@ export default {
     methods: {
         logout() {
             this.sessionStore.loggedIn = false;
+            this.sessionStore.userID = null;
             router.push('/')
         },
-        debug(){
-            console.log("SessionStore.userID:", this.sessionStore.userID)
-            console.log("SessionStore.loggedIn:", this.sessionStore.loggedIn)
-            console.log("UsersData 0:", usersData[0].first_name)
-            console.log("Test: ", usersData[this.sessionStore.userID - 1].first_name)
+        debug() {
+            console.log("Debug")
         },
-        returnToDashboard(){
+        returnToDashboard() {
             router.push('/');
         }
     }
@@ -51,6 +50,7 @@ export default {
     margin: 0 auto;
     padding: 20px;
 }
+
 .navbar {
     background: white;
     border-bottom: 1px solid #ddd;

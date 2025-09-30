@@ -4,31 +4,47 @@
         "first_name": "Julian",
         "last_name": "Schork",
         "email": "julian.schork@iu-study.org",
-        "password_hash":"1",
-        "role":"Admin"
+        "password_hash": "1",
+        "role": "Admin",
+        "stats": {
+            "correctAnswers": 0,
+            "wrongAnswers": 0
+        }
     },
     {
         "userID": 2,
         "first_name": "Marie",
         "last_name": "Appel",
         "email": "marie.appel@iu-study.org",
-        "password_hash":"2",
-        "role":"Admin"
+        "password_hash": "2",
+        "role": "Admin",
+        "stats": {
+            "correctAnswers": 0,
+            "wrongAnswers": 0
+        }
     },
     {
         "userID": 3,
         "first_name": "Felix",
         "last_name": "Hagen",
         "email": "felix.hagen@iu-study.org",
-        "password_hash":"3",
-        "role":"Admin"
+        "password_hash": "3",
+        "role": "Admin",
+        "stats": {
+            "correctAnswers": 0,
+            "wrongAnswers": 0
+        }
     },
     {
         "userID": 4,
         "first_name": "Jerôme",
         "last_name": "Krückeberg",
         "email": "jerome.krueckeberg@iu-study.org",
-        "password_hash":"4",
-        "role":"Admin"
+        "password_hash": "4",
+        "role": "Admin",
+        "stats": {
+            "correctAnswers": 0,
+            "wrongAnswers": 0
+        }
     }
 ]

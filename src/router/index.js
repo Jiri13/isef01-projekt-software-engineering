@@ -4,6 +4,7 @@ import LandingPage from '@/components/LandingPage.vue';
 import DashboardPage from '@/components/DashboardPage.vue';
 import QuizPage from '@/components/QuizPage.vue';
 import QuestionManagementPage from '@/components/QuestionManagementPage.vue';
+import SingleplayerPage from '@/components/SingleplayerPage.vue';
 
 const routes = [
     {
@@ -25,6 +26,11 @@ const routes = [
         path: '/questions',
         name: 'QuestionManagement',
         component: QuestionManagementPage
+    },
+    {
+        path: '/singleplayer',
+        name: 'Singleplayer',
+        component: SingleplayerPage
     }
 ];
 

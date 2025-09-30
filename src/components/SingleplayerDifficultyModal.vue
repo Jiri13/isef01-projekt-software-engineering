@@ -8,19 +8,19 @@
                 <div style="display: grid; grid-template-columns: 1fr; gap: 12px;">
                     <label class="difficulty-easy selected-difficulty"
                         style="cursor: pointer; padding: 16px; border: 2px solid #28a745; border-radius: 8px; text-align: center;"
-                        onclick="selectDifficulty(this)">
+                        @click.prevent="selectDifficulty($event)">
                         <input type="radio" name="singlePlayerDifficulty" value="easy" checked style="display: none;">
                         <div style="font-weight: 600;">🟢 Leicht</div>
                     </label>
                     <label class="difficulty-medium"
                         style="cursor: pointer; padding: 16px; border: 2px solid #ffc107; border-radius: 8px; text-align: center;"
-                        onclick="selectDifficulty(this)">
+                        @click.prevent="selectDifficulty($event)"> 
                         <input type="radio" name="singlePlayerDifficulty" value="medium" style="display: none;">
                         <div style="font-weight: 600;">🟡 Mittel</div>
                     </label>
                     <label class="difficulty-hard"
                         style="cursor: pointer; padding: 16px; border: 2px solid #dc3545; border-radius: 8px; text-align: center;"
-                        onclick="selectDifficulty(this)">
+                        @click.prevent="selectDifficulty($event)">
                         <input type="radio" name="singlePlayerDifficulty" value="hard" style="display: none;">
                         <div style="font-weight: 600;">🔴 Schwer</div>
                     </label>
@@ -32,7 +32,7 @@
                     style="flex: 1;">
                     Abbrechen
                 </button>
-                <button type="button" class="btn btn-primary" onclick="startSinglePlayerWithDifficulty()"
+                <button type="button" class="btn btn-primary" @click.prevent="startSinglePlayerWithDifficulty()"
                     style="flex: 1;">
                     ✅ Spiel starten
                 </button>
@@ -43,6 +43,7 @@
 </template>
 
 <script>
+import router from '@/router/index';
 // JK: Für Prop-Manipulation mittels V-model https://vuejs.org/guide/components/v-model.html
 // Notwendig, da das Modal als Child von DashboardPage.vue aufgerufen wird und somit über dessen Anzeige entscheidet. Somit muss
 // das Modal den Wert in der Dashboardkomponenten ändern
@@ -53,6 +54,27 @@ export default {
         DebugFunction() {
             console.log("Hello");
             console.log(this.showSingleplayerModal)
+        },
+        selectDifficulty(event) {
+            // JK:event ist in dem Fall das Click event. Vue.js nimmt über den Ausdruck event automatisch das angeklickte Element
+            const labelElement = event.currentTarget;
+            // Schwierigkeitsauswahl Handler für farbliche Hervorhebung
+            // Entferne selected-difficulty von allen Labels
+            const allLabels = labelElement.parentElement.querySelectorAll('label');
+            allLabels.forEach(label => label.classList.remove('selected-difficulty'));
+
+            // Füge selected-difficulty zur geklickten Label hinzu
+            labelElement.classList.add('selected-difficulty');
+
+            // Setze das entsprechende Radio-Button auf checked
+            const input = labelElement.querySelector('input[type="radio"]');
+            if (input) {
+                input.checked = true;
+            }
+        },
+        startSinglePlayerWithDifficulty() {
+            router.push('/singleplayer')
+            //Funktionalität fehlt noch
         }
     }
 }
