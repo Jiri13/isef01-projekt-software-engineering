@@ -29,7 +29,7 @@
         "explanation": "Microsoft Word ist tatsächlich ein weit verbreitetes Textverarbeitungsprogramm.",
         "timeLimit": 20,
         "difficulty": "easy",
-        "rating": 5
+        "rating": 5,
         "quizID": 1,
         "userID": 1
     },
@@ -47,7 +47,7 @@
         "explanation": "Business Intelligence umfasst Technologien und Praktiken zur Datenanalyse für bessere Geschäftsentscheidungen.",
         "timeLimit": 45,
         "difficulty": "medium",
-        "rating": 5.
+        "rating": 5,
         "quizID": 1,
         "userID": 1
     },
@@ -63,7 +63,7 @@
         "explanation": "Enterprise Resource Planning (ERP) Systeme integrieren alle Geschäftsprozesse in einer einheitlichen Lösung.",
         "timeLimit": 30,
         "difficulty": "medium",
-        "rating": 5
+        "rating": 5,
         "quizID": 1,
         "userID": 1
     },
@@ -81,7 +81,7 @@
         "explanation": "OLTP (Online Transaction Processing) ist für transaktionale Operationen optimiert, während OLAP (Online Analytical Processing) für analytische Abfragen designed ist.",
         "timeLimit": 60,
         "difficulty": "hard",
-        "rating": 5
+        "rating": 5,
         "quizID": 1,
         "userID": 1
     },
@@ -99,7 +99,7 @@
         "explanation": "NoSQL-Datenbanken verwenden typischerweise keine relationalen Tabellenstrukturen, sondern alternative Datenmodelle.",
         "timeLimit": 50,
         "difficulty": "hard",
-        "rating": 5
+        "rating": 5,
         "quizID": 1,
         "userID": 1
     }
