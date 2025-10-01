@@ -1,0 +1,14 @@
+[
+    {
+        "id": 1,
+        "name": "TestRoom",
+        "code": "1234",
+        "hostID": 4,
+        "participants": [4],
+        "gameMode": "cooperative",
+        "maxParticipants": 8,
+        "questions": [],
+        "difficulty": "easy",
+        "createdAt": 0
+    }
+]

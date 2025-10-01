@@ -63,6 +63,7 @@ export default {
             usersData.forEach((user) => {
                 if (this.enteredEmail == user.email && this.enteredPassword == user.password_hash) {
                     this.sessionStore.loggedIn = true;
+                    this.saveUserIDInSessionStore(user.userID)
                     console.log('Login-Status:', this.sessionStore.loggedIn);
                     router.push('/');
                 }
@@ -73,6 +74,9 @@ export default {
                 this.enteredEmail = '';
                 this.enteredPassword = '';
             }
+        },
+        saveUserIDInSessionStore(userID){
+            this.sessionStore.userID = userID;
         },
         testLogin() {
             router.push('/dashboard')

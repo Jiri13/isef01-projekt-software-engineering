@@ -2,10 +2,12 @@
     <nav class="navbar">
         <div class="container">
             <div class="navbar-content">
-                <div class="navbar-brand">🎯 IU Quiz Dashboard</div>
+                <div @click.prevent="returnToDashboard()" class="navbar-brand">🎯 IU Quiz</div>
                 <div class="nav-links">
-                    <span>👋 ${globalState.user.username}</span>
+                    <span v-if="sessionStore.userID && usersData[sessionStore.userID - 1]">👋 {{
+                        usersData[sessionStore.userID - 1].first_name }}</span>
                     <button class="btn btn-secondary" @click.prevent="logout()">Abmelden</button>
+                    <button @click.prevent="debug()">Debug</button>
                 </div>
             </div>
         </div>
@@ -14,6 +16,7 @@
 
 <script>
 import { useSessionStore } from '@/stores/session'
+import usersData from '../files/users.json'
 import router from '@/router/index'
 
 export default {
@@ -21,13 +24,21 @@ export default {
         const sessionStore = useSessionStore()
 
         return {
-            sessionStore
+            sessionStore,
+            usersData
         }
     },
     methods: {
         logout() {
             this.sessionStore.loggedIn = false;
+            this.sessionStore.userID = null;
             router.push('/')
+        },
+        debug() {
+            console.log("Debug")
+        },
+        returnToDashboard() {
+            router.push('/');
         }
     }
 }
@@ -39,6 +50,7 @@ export default {
     margin: 0 auto;
     padding: 20px;
 }
+
 .navbar {
     background: white;
     border-bottom: 1px solid #ddd;
@@ -58,6 +70,7 @@ export default {
     font-size: 24px;
     font-weight: 700;
     color: #007bff;
+    cursor: pointer;
 }
 
 .nav-links {

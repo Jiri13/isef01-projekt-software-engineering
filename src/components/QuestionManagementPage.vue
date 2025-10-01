@@ -1,5 +1,5 @@
 <template>
-    <NavbarComponent></NavbarComponent>
+    <DashboardNavbar></DashboardNavbar>
     <div class="card" style="cursor: pointer; margin-bottom: 12px; border: 1px solid #ddd;"
         onclick="editQuestion(${q.id})">
         <div style="display: flex; justify-content: space-between; align-items: flex-start;">
@@ -25,11 +25,11 @@
 </template>
 
 <script>
-import NavbarComponent from './NavbarComponent.vue';
+import DashboardNavbar from './DashboardNavbar.vue'; //rename
 
 export default {
     components: {
-        NavbarComponent
+        DashboardNavbar
     }
 }
 </script>

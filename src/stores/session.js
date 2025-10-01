@@ -2,7 +2,10 @@ import { defineStore } from "pinia";
 
 export const useSessionStore = defineStore('session', {
     state: () => ({
-            loggedIn: false
+            loggedIn: false,
+            userID: null
     }),
-    persist:true
+    persist: {
+        paths: ['loggedIn', 'userID']
+    }
 })
