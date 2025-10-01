@@ -1,7 +1,7 @@
 [
     {
-        "id": 1,
-        "text": "Was ist ein Computer?",
+        "questionID": 1,
+        "question_text": "Was ist ein Computer?",
         "type": "multiple_choice",
         "options": [
             "Ein elektronisches Gerät",
@@ -13,11 +13,13 @@
         "explanation": "Ein Computer ist ein elektronisches Gerät zur Datenverarbeitung.",
         "timeLimit": 30,
         "difficulty": "easy",
-        "rating": 5
+        "rating": 5,
+        "quizID": 1,
+        "userID": 1
     },
     {
-        "id": 2,
-        "text": "Microsoft Word ist ein Textverarbeitungsprogramm.",
+        "questionID": 2,
+        "question_text": "Microsoft Word ist ein Textverarbeitungsprogramm.",
         "type": "true_false",
         "options": [
             "Wahr",
@@ -28,10 +30,12 @@
         "timeLimit": 20,
         "difficulty": "easy",
         "rating": 5
+        "quizID": 1,
+        "userID": 1
     },
     {
-        "id": 3,
-        "text": "Was versteht man unter Business Intelligence?",
+        "questionID": 3,
+        "question_text": "Was versteht man unter Business Intelligence?",
         "type": "multiple_choice",
         "options": [
             "Datenanalyse für Entscheidungen",
@@ -43,11 +47,13 @@
         "explanation": "Business Intelligence umfasst Technologien und Praktiken zur Datenanalyse für bessere Geschäftsentscheidungen.",
         "timeLimit": 45,
         "difficulty": "medium",
-        "rating": 5
+        "rating": 5.
+        "quizID": 1,
+        "userID": 1
     },
     {
-        "id": 4,
-        "text": "Ein ERP-System integriert verschiedene Geschäftsprozesse.",
+        "questionID": 4,
+        "question_text": "Ein ERP-System integriert verschiedene Geschäftsprozesse.",
         "type": "true_false",
         "options": [
             "Wahr",
@@ -58,10 +64,12 @@
         "timeLimit": 30,
         "difficulty": "medium",
         "rating": 5
+        "quizID": 1,
+        "userID": 1
     },
     {
-        "id": 5,
-        "text": "Was ist der Hauptunterschied zwischen OLTP und OLAP?",
+        "questionID": 5,
+        "question_text": "Was ist der Hauptunterschied zwischen OLTP und OLAP?",
         "type": "multiple_choice",
         "options": [
             "Transaktional vs. Analytisch",
@@ -74,10 +82,12 @@
         "timeLimit": 60,
         "difficulty": "hard",
         "rating": 5
+        "quizID": 1,
+        "userID": 1
     },
     {
-        "id": 6,
-        "text": "Welches Datenmodell verwendet NoSQL-Datenbanken typischerweise NICHT?",
+        "questionID": 6,
+        "question_text": "Welches Datenmodell verwendet NoSQL-Datenbanken typischerweise NICHT?",
         "type": "multiple_choice",
         "options": [
             "Dokumente",
@@ -90,5 +100,7 @@
         "timeLimit": 50,
         "difficulty": "hard",
         "rating": 5
+        "quizID": 1,
+        "userID": 1
     }
 ]
