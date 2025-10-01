@@ -2,7 +2,7 @@
     {
         "id": 1,
         "name": "TestRoom",
-        "code": 1234,
+        "code": "1234",
         "hostID": 4,
         "participants": [4],
         "gameMode": "cooperative",

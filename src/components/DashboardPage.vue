@@ -28,8 +28,9 @@
       <div class="card">
         <h3 style="margin-bottom: 16px;">🔗 Raum beitreten</h3>
         <div style="display: flex; gap: 12px;">
-          <input type="text" id="joinCode" class="form-input" placeholder="Code eingeben" style="flex: 1;">
-          <button class="btn btn-primary" onclick="joinRoom()">Beitreten</button>
+          <input type="text" id="joinCode" v-model="joinCode" class="form-input" placeholder="Code eingeben"
+            style="flex: 1;">
+          <button class="btn btn-primary" @click.prevent="joinRoomByCode()">Beitreten</button>
         </div>
         <div id="joinError" style="display: none;" class="alert alert-error"></div>
       </div>
@@ -96,11 +97,11 @@
 <script>
 import { useSessionStore } from '@/stores/session'
 import router from '@/router/index'
-import DashboardNavbar from './DashboardNavbar.vue'; //rename
+import DashboardNavbar from './DashboardNavbar.vue';
 import SingleplayerDifficultyModal from './SingleplayerDifficultyModal.vue'
 import CreateQuizRoomModal from './CreateQuizRoomModal.vue'
-import usersData from '../files/users.json'
-import roomData from '../files/rooms.json'
+import users from '../files/users.json' // <DATENBANK>
+import rooms from '../files/rooms.json' // <DATENBANK>
 
 export default {
   components: {
@@ -111,10 +112,11 @@ export default {
 
     return {
       sessionStore,
+      users,
+      rooms,
       isShowingSinglePlayerModal: false,
       isShowingCreateQuizRoomModal: false,
-      users: usersData,
-      rooms: roomData
+      joinCode: ''
     }
   },
   methods: {
@@ -151,10 +153,20 @@ export default {
       const room = this.rooms.find(room => room.id === roomID);
       if (room) {
         alert("🎯 Quiz-Raum " + room.name + " betreten!\n\n📊 Schwierigkeit: " + this.getDifficultyText(room.difficulty) + "\n🎮 Modus: " + (room.gameMode === 'cooperative' ? 'Kooperativ - gemeinsam lernen' : 'Kompetitiv - gegeneinander antreten') + "\n❓" + room.questions.length + " Fragen verfügbar");
-        // Enter Multiplayermode in correct room
+        //JK: To-Do: Enter Multiplayermode
       }
     },
-    deleteRoom(roomID) {
+    joinRoomByCode() {
+      const room = this.rooms.find(room => room.code == this.joinCode)
+      if (room) {
+        alert("🎉 Raum " + room.name + " beigetreten!\n📊 Schwierigkeit: " + this.getDifficultyText(room.difficulty));
+        //JK: To-Do: Enter Multiplayermode
+      }
+      else {
+        alert("❌ Raum nicht gefunden");
+      }
+    },
+    deleteRoom(roomID) { // <DATENBANK>
       if (confirm('Möchten Sie diesen Raum wirklich löschen?')) {
         // Entferne Raum aus Datenbank
         alert('Raum wurde gelöscht');
