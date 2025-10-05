@@ -7,7 +7,9 @@
       <singleplayer-difficulty-modal v-model="isShowingSinglePlayerModal" />
     </div>
     <div v-if="isShowingCreateQuizRoomModal" class="modal">
-      <create-quiz-room-modal v-model="isShowingCreateQuizRoomModal" />
+      <create-quiz-room-modal
+          v-model="isShowingCreateQuizRoomModal"
+          @created="onRoomCreated"/>
     </div>
   </Teleport>
 
@@ -51,6 +53,8 @@
     </div>
 
     <h2>🏠 Deine Räume ({{ myRooms.length }})</h2>
+    <div v-if="loadingRooms" class="card" style="padding:16px;">⏳ Räume werden geladen…</div>
+    <div v-if="roomsError" class="card" style="padding:16px;color:#dc3545;">{{ roomsError }}</div>
 
     <div id="roomsList">
       <div v-if="myRooms.length === 0" class="card" style="text-align:center;padding:48px;">
@@ -101,7 +105,7 @@ import DashboardNavbar from './DashboardNavbar.vue'
 import SingleplayerDifficultyModal from './SingleplayerDifficultyModal.vue'
 import CreateQuizRoomModal from './CreateQuizRoomModal.vue'
 import users from '../files/users.json'   // <DATENBANK>
-import rooms from '../files/rooms.json'   // <DATENBANK>
+import axios from 'axios'
 
 export default {
   components: {
@@ -115,10 +119,12 @@ export default {
     return {
       sessionStore,
       users,
-      rooms,
+      rooms: [],
       isShowingSinglePlayerModal: false,
       isShowingCreateQuizRoomModal: false,
-      joinCode: ''
+      joinCode: '',
+      loadingRooms: false,
+      roomsError: null
     }
   },
 
@@ -141,9 +147,38 @@ export default {
     }
   },
 
+  async mounted() {
+    await this.fetchMyRooms()
+  },
+
   methods: {
     debug() {
       console.log(this.getUserStatsFromID(this.sessionStore.userID))
+    },
+    async fetchMyRooms() {
+      try {
+        this.loadingRooms = true
+        this.roomsError = null
+        const uid = this.sessionStore.userID
+        const { data } = await axios.get('/api/rooms.php', { params: { userID: uid } })
+
+        // In deine UI-Form bringen
+        this.rooms = (data || []).map(r => ({
+          ...r,
+          participants: Array.isArray(r.participants) ? r.participants : [],
+          // Dein Template nutzt room.questions.length → wir bauen ein Dummy-Array mit der Anzahl
+          questions: new Array(r.questionsCount ?? 0).fill(null),
+          maxParticipants: r.maxParticipants ?? 10
+        }))
+      } catch (e) {
+        console.error(e)
+        this.roomsError = 'Konnte Räume nicht laden.'
+      } finally {
+        this.loadingRooms = false
+      }
+    },
+    async onRoomCreated(room) {
+      await this.fetchMyRooms()
     },
     showSinglePlayerDifficultyModal() {
       this.isShowingSinglePlayerModal = true
@@ -183,19 +218,60 @@ export default {
         // TODO: Enter Multiplayermode
       }
     },
-    joinRoomByCode() {
-      const room = (this.rooms || []).find(room => room.code == this.joinCode)
-      if (room) {
-        alert("🎉 Raum " + room.name + " beigetreten!\n📊 Schwierigkeit: " + this.getDifficultyText(room.difficulty))
-        // TODO: Enter Multiplayermode
-      } else {
-        alert("❌ Raum nicht gefunden")
+    async joinRoomByCode() {
+      const code = (this.joinCode || '').trim()
+      if (!code) {
+        alert('Bitte einen Raumcode eingeben.')
+        return
+      }
+      try {
+        const { data } = await axios.post('/api/join.php', {
+          code,
+          userID: this.sessionStore.userID
+        })
+
+        if (data.alreadyParticipant) {
+          alert('✅ Du bist bereits Teilnehmer dieses Raums.')
+        } else {
+          alert('🎉 Erfolgreich beigetreten!')
+        }
+
+        // Liste neu laden, damit der Raum in "meine Räume" erscheint
+        await this.fetchMyRooms()
+        this.joinCode = ''
+      } catch (e) {
+        const msg = e?.response?.data?.error || 'Beitreten fehlgeschlagen.'
+        if (msg === 'room not found') {
+          alert('❌ Raum nicht gefunden. Bitte Code prüfen.')
+        } else if (msg === 'room is full') {
+          alert('🚫 Raum ist voll.')
+        } else {
+          alert('❌ ' + msg)
+        }
+        console.error('JOIN ERROR', e?.response?.status, e?.response?.data)
       }
     },
-    deleteRoom(roomID) {
-      if (confirm('Möchten Sie diesen Raum wirklich löschen?')) {
-        // TODO: Entferne Raum aus Datenbank
-        alert('Raum wurde gelöscht')
+    async deleteRoom(roomID) {
+      if (!confirm('Möchten Sie diesen Raum wirklich löschen?')) return;
+      try {
+        const res = await axios.post('/api/deleteRooms.php', {
+          roomID,
+          userID: this.sessionStore.userID
+        });
+        console.log('DELETE OK', res.data);
+        alert('Raum wurde gelöscht');
+        await this.fetchMyRooms();
+      } catch (e) {
+        // ausführliches Debug
+        const status = e.response?.status;
+        const data = e.response?.data;
+        console.error('DELETE ERROR', status, data, e);
+
+        alert(
+            '❌ Fehler beim Löschen\n'
+            + 'Status: ' + (status ?? 'unbekannt') + '\n'
+            + 'Antwort: ' + (data ? JSON.stringify(data) : 'keine')
+        );
       }
     }
   }

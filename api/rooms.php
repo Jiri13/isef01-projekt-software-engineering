@@ -1,5 +1,6 @@
 <?php
-// api/rooms.php
+// [WHY] Endpoint: Liefert alle Räume, in denen userID Host oder Teilnehmer ist, inkl. Metriken.
+
 header('Content-Type: application/json');
 
 require __DIR__ . '/db.php';
@@ -7,19 +8,15 @@ require __DIR__ . '/db.php';
 /**
  * Expect: GET /api/rooms.php?userID=123
  */
+
 $userID = isset($_GET['userID']) ? (int)$_GET['userID'] : 0;
 if ($userID <= 0) {
     http_response_code(400);
     echo json_encode(['error' => 'userID required']);
     exit;
 }
+// [WARN] userID kommt aus Query-Param ohne Auth-Überprüfung (Session/JWT fehlt).
 
-/*
-  Aggregationen:
-  - participants_count: RoomParticipant
-  - questions_count: Question (per quizID)
-  - avg_difficulty: Heuristik aus Question.difficulty (Easy=1, Medium=2, Hard=3)
-*/
 $sql = "
 SELECT
   r.roomID                            AS id,
@@ -56,12 +53,15 @@ WHERE
   OR r.roomID IN (SELECT roomID FROM RoomParticipant WHERE userID = :uid)
 ORDER BY r.started DESC
 ";
+// [HOW] Aggregiert Teilnehmer/Fragen über Subselects und joint sie pro Raum.
+// [ASSUME] Question.difficulty nutzt 'Easy|Medium|Hard' passend zur CASE-Mapping.
+// [PERF] Indexe auf RoomParticipant(roomID), Question(quizID) und Room(userID,code) empfohlen.
 
 $stmt = $pdo->prepare($sql);
 $stmt->execute([':uid' => $userID]);
 $rows = $stmt->fetchAll();
 
-/* Teilnehmer je Room (als Liste von userIDs) */
+/* Teilnehmer je Raum (als Liste von userIDs) */
 $roomIds = array_column($rows, 'id');
 $participants = [];
 if (!empty($roomIds)) {
@@ -75,6 +75,8 @@ if (!empty($roomIds)) {
         if (!isset($participants[$rid])) $participants[$rid] = [];
         $participants[$rid][] = $uid;
     }
+    // [HOW] Dynamische IN-Klausel via Platzhalter; schützt vor SQL-Injection.
+    // [PERF] Sehr große IN-Listen können langsam werden; ggf. Join nutzen oder batched laden.
 }
 
 /* Difficulty-Heuristik: 1..3 -> easy/medium/hard */
@@ -84,8 +86,8 @@ function mapDifficulty($avg)
     if ($avg <= 2.5) return 'medium';
     return 'hard';
 }
+// [ASSUME] Schwellen 1.5/2.5: linear aus 1..3 abgeleitet; unklare Werte werden zu 'medium'.
 
-/* Ergebnis in Frontend-Form bringen */
 $result = array_map(function($r) use ($participants) {
     $id = (int)$r['id'];
     $avg = (float)$r['avg_diff'];
@@ -98,13 +100,14 @@ $result = array_map(function($r) use ($participants) {
         'code'             => $r['code'],
         'hostID'           => (int)$r['hostID'],
         'started'          => $r['started'],
-        'quizID'           => (int)$r['quizID'],
+        'quizID'           => (int)$r['quizID'],              // [WARN] NULL wird zu 0; evtl. lieber null belassen
         'participants'     => $participants[$id] ?? [],
         'participantsCount'=> (int)$r['participants_count'],
-        'maxParticipants'  => $r['max_participants'],
-        'questions'        => array_fill(0, (int)$r['questions_count'], null),
+        'maxParticipants'  => $r['max_participants'],          // [ASSUME] Typ vom DB-Treiber (String/Int) wird akzeptiert
+        'questions'        => array_fill(0, (int)$r['questions_count'], null), // [WHY] Platzhalter nur für Anzahl
         'questionsCount'   => (int)$r['questions_count'],
     ];
 }, $rows);
 
 echo json_encode($result);
+// [IO] Liefert reines Array ohne Hülle; Client muss leeres Array korrekt behandeln.
