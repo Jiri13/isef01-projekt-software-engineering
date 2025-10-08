@@ -93,6 +93,12 @@
         >
           🗑️ Raum löschen
         </button>
+        <button
+            v-if="room.hostID != sessionStore.userID"
+            @click.prevent="leaveRoom(room.id)"
+            class="btn btn-danger"
+            style="position:absolute;bottom:12px;right:12px;padding:8px 12px;font-size:14px;"
+        >
       </div>
     </div>
   </div>
@@ -273,6 +279,9 @@ export default {
             + 'Antwort: ' + (data ? JSON.stringify(data) : 'keine')
         );
       }
+    },
+    leaveRoom(roomID){
+      //leave Quiz-Room
     }
   }
 }
