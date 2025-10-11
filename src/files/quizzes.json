@@ -16,5 +16,32 @@
         "time_limit": 180,
         "category": "Wirtschaftsinformatik",
         "userID": 1
+    },
+        {
+        "quizID": 3,
+        "title": "TestQuiz Nr.3",
+        "quiz_description": "Noch ein Quiz zum Testen",
+        "questions": [5,6],
+        "time_limit": 180,
+        "category": "Wirtschaftsinformatik",
+        "userID": 1
+    },
+        {
+        "quizID": 4,
+        "title": "TestQuiz Nr.4",
+        "quiz_description": "Noch ein Quiz zum Testen",
+        "questions": [5,6],
+        "time_limit": 180,
+        "category": "Wirtschaftsinformatik",
+        "userID": 1
+    },
+        {
+        "quizID": 5,
+        "title": "TestQuiz Nr.5",
+        "quiz_description": "Noch ein Quiz zum Testen",
+        "questions": [5,6],
+        "time_limit": 180,
+        "category": "Wirtschaftsinformatik",
+        "userID": 1
     }
 ]

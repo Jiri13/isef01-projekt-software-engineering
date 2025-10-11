@@ -52,6 +52,11 @@ body {
   margin-bottom: 20px;
 }
 
+.card.selected {
+  border: 4px solid #007bff !important;
+  box-shadow: 0 0 10px rgba(0, 123, 255, 0.3);
+}
+
 .btn {
   padding: 12px 24px;
   border: none;
@@ -203,12 +208,27 @@ body {
   background: #28a745;
   color: white;
   border-color: #28a745;
+  pointer-events: none;
 }
 
 .answer-option.incorrect {
   background: #dc3545;
   color: white;
   border-color: #dc3545;
+  pointer-events: none;
+}
+
+.singleplayer-explanation {
+  margin-top: 16px;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border-left: 4px solid #007bff;
+  font-weight: bold;
+}
+
+.disabled-options {
+  pointer-events: none;
 }
 
 .difficulty-easy {

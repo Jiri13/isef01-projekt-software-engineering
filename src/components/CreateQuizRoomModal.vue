@@ -2,7 +2,6 @@
     <div class="modal">
         <div class="modal-content">
             <h2 style="margin-bottom: 24px;">🏠 Neuen Quiz-Raum erstellen</h2>
-
             <form onsubmit="createRoom(event)">
                 <div class="form-group">
                     <label class="form-label">Raum Name</label>

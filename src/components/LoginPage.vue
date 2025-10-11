@@ -10,7 +10,7 @@
 
             <form @submit.prevent="attemptLogin()">
                 <div class="form-group">
-                    <label class="form-label">E-Mail oder Benutzername</label>
+                    <label class="form-label">E-Mail</label>
                     <input v-model="enteredEmail" type="text" id="email" class="form-input" required
                         placeholder="julian.schork@iu-study.org">
                 </div>

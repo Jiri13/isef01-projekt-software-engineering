@@ -3,6 +3,7 @@ import router from './router'
 import { createPinia } from 'pinia'
 import piniaPluginPersistedState from 'pinia-plugin-persistedstate'
 import { useSessionStore } from './stores/session'
+import { useSingleplayerStore } from './stores/singleplayer'
 import App from './App.vue'
 import '../node_modules/bootstrap/dist/css/bootstrap.css'
 
@@ -22,5 +23,6 @@ app.use(router);
 
 app.mount('#app');
 
-const sessionStore = useSessionStore()
-// createApp(App).mount('#app');
+// const sessionStore = useSessionStore()
+// const singleplayerStore = useSingleplayerStore()
+// // createApp(App).mount('#app');

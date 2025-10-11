@@ -48,7 +48,7 @@
         "stats": {
             "correctAnswers": 0,
             "wrongAnswers": 0,
-            "quiz_catalogue": [1,2]
+            "quiz_catalogue": [1,2,3,4,5]
         }
     }
 ]

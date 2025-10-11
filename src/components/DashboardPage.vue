@@ -89,6 +89,11 @@
           style="position: absolute; bottom: 12px; right: 12px; padding: 8px 12px; font-size: 14px;">
           🗑️ Raum löschen
         </button>
+        <button v-if="room.hostID != sessionStore.userID" @click.prevent="leaveRoom(room.id)"
+          class="btn btn-danger"
+          style="position: absolute; bottom: 12px; right: 12px; padding: 8px 12px; font-size: 14px;">
+          🚪Raum verlassen
+        </button>
       </div>
     </div>
   </div>
@@ -171,6 +176,9 @@ export default {
         // Entferne Raum aus Datenbank
         alert('Raum wurde gelöscht');
       }
+    },
+    leaveRoom(roomID){
+
     }
 
   }
