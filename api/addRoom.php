@@ -1,14 +1,14 @@
 <?php
-// api/addRooms.php
+// api/addRoom.php
 // [WHY] Endpoint zum Anlegen eines Spiel-Raums mit Validierung, Code-Generierung und DB-TXN.
 
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Origin: *'); // [WARN] CORS für alle Ursprünge offen; in Prod ggf. einschränken
 header('Access-Control-Allow-Methods: POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { exit; } // [IO] CORS-Preflight schnell beenden
 
-require __DIR__ . '/db.php';
+require __DIR__ . '/dbConnection.php'; // [ASSUME] PDO ist mit ERRMODE_EXCEPTION + UTF-8 konfiguriert
 
 /**
  * JSON:
@@ -23,6 +23,7 @@ require __DIR__ . '/db.php';
  *   "code": "ABC123",                        // optional; wird generiert
  *   "addHostAsParticipant": true             // optional
  * }
+ * [WARN] Keine Längen-/Zeichen-Validierung für name/code; DB-Constraints übernehmen das Risiko
  */
 
 $input = json_decode(file_get_contents('php://input'), true);
@@ -33,9 +34,9 @@ $modeIn  = strtolower(trim((string)($input['playMode'] ?? 'cooperative')));
 $diffIn  = strtolower(trim((string)($input['difficulty'] ?? 'medium'))); // << lower-case
 $maxPart = isset($input['maxParticipants']) ? (int)$input['maxParticipants'] : 10;
 $started = trim((string)($input['started'] ?? ''));
-$quizID  = array_key_exists('quizID', $input) ? $input['quizID'] : null;
+$quizID  = array_key_exists('quizID', $input) ? $input['quizID'] : null; // [HOW] unterscheidet fehlend vs. explizit null
 $userID  = (int)($input['userID'] ?? 0);
-$code    = isset($input['code']) ? trim((string)$input['code']) : '';
+$code    = isset($input['code']) ? trim((string)$input['code']) : ''; // [WARN] Client-Code wird nicht auf erlaubte Zeichen geprüft
 $addHost = !empty($input['addHostAsParticipant']);
 
 if ($name === '' || $userID <= 0) { http_response_code(400); echo json_encode(['error'=>'name and userID are required']); exit; } // [ERR] Mindestangaben prüfen
@@ -51,7 +52,7 @@ if ($started === '') { $started = date('Y-m-d H:i:s'); } // [ASSUME] Serverzeit/
 else {
     $t = strtotime($started);
     if ($t === false) { http_response_code(400); echo json_encode(['error'=>'Invalid datetime for "started"']); exit; } // [ERR]
-    $started = date('Y-m-d H:i:s', $t);
+    $started = date('Y-m-d H:i:s', $t); // [WARN] Zeitzone des Inputs geht verloren; Normalisierung auf Server-TZ
 }
 
 /**
@@ -59,6 +60,7 @@ else {
  * [HOW] random_bytes → hex → base36 → uppercase; danach DB-Existenzcheck in Schleife.
  * [PERF] Erwartete O(1)-Versuche bei kleinem Code-Space; Loop bricht bei Treffer.
  * [ERR] Vertraut auf DB-Verbindung; ohne Unique-Index kann Race Condition verbleiben.
+ * [WARN] random_bytes kann Exception werfen (z. B. fehlende Entropie); hier nicht separat abgefangen
  */
 function generateUniqueCode(PDO $pdo, $length = 6) {
     while (true) {
@@ -85,7 +87,7 @@ try {
 
     $quizIdToStore = null;
     if ($quizID !== null && $quizID !== '' && (int)$quizID > 0) {
-        $qId = (int)$quizID;
+        $qId = (int)$quizID; // [ASSUME] numerische quizID; "0" gilt als ungültig
         $chkQ = $pdo->prepare("SELECT 1 FROM Quiz WHERE quizID = :q LIMIT 1");
         $chkQ->execute([':q'=>$qId]);
         if (!$chkQ->fetch()) { $pdo->rollBack(); http_response_code(400); echo json_encode(['error'=>'quizID not found']); exit; } // [ERR]
@@ -108,11 +110,12 @@ try {
     $ins->bindValue(':code', $code);
     $ins->execute();
 
-    $roomID = (int)$pdo->lastInsertId();
+    $roomID = (int)$pdo->lastInsertId(); // [ASSUME] auto_increment und kein Trigger ändert ID
 
     if ($addHost) {
         $insP = $pdo->prepare("INSERT INTO RoomParticipant (points, roomID, userID) VALUES (0, :r, :u)");
         $insP->execute([':r'=>$roomID, ':u'=>$userID]); // [ASSUME] (roomID,userID) ist entweder unikal oder mehrfach erlaubt
+        // [WARN] Kein Check auf bestehende Teilnahme; Duplicate wird auf DB-Constraint abgewiesen (falls vorhanden)
     }
 
     $pdo->commit();

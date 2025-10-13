@@ -168,7 +168,7 @@ export default {
         this.loadingRooms = true
         this.roomsError = null
         const uid = this.sessionStore.userID
-        const { data } = await axios.get('/api/rooms.php', { params: { userID: uid } })
+        const { data } = await axios.get('/api/listRooms.php', { params: { userID: uid } })
 
         // In deine UI-Form bringen
         this.rooms = (data || []).map(r => ({
@@ -233,7 +233,7 @@ export default {
         return
       }
       try {
-        const { data } = await axios.post('/api/join.php', {
+        const { data } = await axios.post('/api/joinRoom.php', {
           code,
           userID: this.sessionStore.userID
         })
@@ -262,7 +262,7 @@ export default {
     async deleteRoom(roomID) {
       if (!confirm('Möchten Sie diesen Raum wirklich löschen?')) return;
       try {
-        const res = await axios.post('/api/deleteRooms.php', {
+        const res = await axios.post('/api/deleteRoom.php', {
           roomID,
           userID: this.sessionStore.userID
         });
@@ -282,8 +282,28 @@ export default {
         );
       }
     },
-    leaveRoom(roomID){
-      //leave Quiz-Room
+    async leaveRoom(roomID){
+      if (!confirm('Möchten Sie diesen Raum wirklich verlassen?')) return;
+      try {
+        const res = await axios.post('/api/leaveRoom.php', {
+          roomID,
+          userID: this.sessionStore.userID
+        });
+        console.log('LEAVE OK', res.data);
+        alert('Raum wurde verlassen!');
+        await this.fetchMyRooms();
+      } catch (e) {
+        // ausführliches Debug
+        const status = e.response?.status;
+        const data = e.response?.data;
+        console.error('LEAVE ERROR', status, data, e);
+
+        alert(
+            '❌ Fehler beim verlassen\n'
+            + 'Status: ' + (status ?? 'unbekannt') + '\n'
+            + 'Antwort: ' + (data ? JSON.stringify(data) : 'keine')
+        );
+      }
     }
   }
 }

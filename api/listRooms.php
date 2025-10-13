@@ -3,10 +3,10 @@
 
 header('Content-Type: application/json');
 
-require __DIR__ . '/db.php';
+require __DIR__ . '/dbConnection.php';
 
 /**
- * Expect: GET /api/rooms.php?userID=123
+ * Expect: GET /api/listRooms.php?userID=123
  */
 
 $userID = isset($_GET['userID']) ? (int)$_GET['userID'] : 0;
@@ -16,6 +16,7 @@ if ($userID <= 0) {
     exit;
 }
 // [WARN] userID kommt aus Query-Param ohne Auth-Überprüfung (Session/JWT fehlt).
+// [ASSUME] Request ist bereits authentisiert oder nur für interne Nutzung bestimmt.
 
 $sql = "
 SELECT
@@ -53,15 +54,16 @@ WHERE
   OR r.roomID IN (SELECT roomID FROM RoomParticipant WHERE userID = :uid)
 ORDER BY r.started DESC
 ";
-// [HOW] Aggregiert Teilnehmer/Fragen über Subselects und joint sie pro Raum.
-// [ASSUME] Question.difficulty nutzt 'Easy|Medium|Hard' passend zur CASE-Mapping.
-// [PERF] Indexe auf RoomParticipant(roomID), Question(quizID) und Room(userID,code) empfohlen.
+// [HOW] Aggregiert Teilnehmer/Fragen via vorgelagerten Gruppierungen und joint diese pro Raum.
+// [ASSUME] Question.difficulty ist exakt 'Easy|Medium|Hard' (Großschreibung wie im CASE).
+// [PERF] COUNT/AVG über Subselects vermeidet N+1-Queries; Indexe auf RoomParticipant(roomID), Question(quizID) empfohlen.
+// [WARN] participants_count zählt nur RoomParticipant, nicht zwingend den Host (falls Host nicht als Participant erfasst).
 
 $stmt = $pdo->prepare($sql);
 $stmt->execute([':uid' => $userID]);
 $rows = $stmt->fetchAll();
 
-/* Teilnehmer je Raum (als Liste von userIDs) */
+// [HOW] Teilnehmer je Raum (als Liste von userIDs) nachladen
 $roomIds = array_column($rows, 'id');
 $participants = [];
 if (!empty($roomIds)) {
@@ -75,8 +77,8 @@ if (!empty($roomIds)) {
         if (!isset($participants[$rid])) $participants[$rid] = [];
         $participants[$rid][] = $uid;
     }
-    // [HOW] Dynamische IN-Klausel via Platzhalter; schützt vor SQL-Injection.
-    // [PERF] Sehr große IN-Listen können langsam werden; ggf. Join nutzen oder batched laden.
+    // [HOW] Dynamische IN-Klausel sicher über Platzhalter; schützt vor SQL-Injection.
+    // [PERF] Sehr große IN-Listen können langsam sein; Alternative: JOIN mit IN (...) oder batched Laden.
 }
 
 /* Difficulty-Heuristik: 1..3 -> easy/medium/hard */
@@ -86,7 +88,7 @@ function mapDifficulty($avg)
     if ($avg <= 2.5) return 'medium';
     return 'hard';
 }
-// [ASSUME] Schwellen 1.5/2.5: linear aus 1..3 abgeleitet; unklare Werte werden zu 'medium'.
+// [ASSUME] Schwellen 1.5/2.5 linear aus Mapping 1..3; bei fehlenden Fragen ist avg_diff = 0 → später 'medium'.
 
 $result = array_map(function($r) use ($participants) {
     $id = (int)$r['id'];
@@ -95,19 +97,20 @@ $result = array_map(function($r) use ($participants) {
     return [
         'id'               => $id,
         'name'             => $r['name'],
-        'gameMode'         => (strtolower($r['play_mode']) === 'cooperative') ? 'cooperative' : 'competitive',
-        'difficulty'       => $avg > 0 ? mapDifficulty($avg) : 'medium',
+        'gameMode'         => (strtolower($r['play_mode']) === 'cooperative') ? 'cooperative' : 'competitive', // [HOW] API normalisiert auf lowercase
+        'difficulty'       => $avg > 0 ? mapDifficulty($avg) : 'medium', // [ASSUME] Kein avg ⇒ neutrale Default-Schwierigkeit
         'code'             => $r['code'],
         'hostID'           => (int)$r['hostID'],
         'started'          => $r['started'],
-        'quizID'           => (int)$r['quizID'],              // [WARN] NULL wird zu 0; evtl. lieber null belassen
-        'participants'     => $participants[$id] ?? [],
+        'quizID'           => (int)$r['quizID'],              // [WARN] NULL wird zu 0 coercet; ggf. besser null durchreichen.
+        'participants'     => $participants[$id] ?? [],       // [ASSUME] Reihenfolge der IDs ist unerheblich
         'participantsCount'=> (int)$r['participants_count'],
-        'maxParticipants'  => $r['max_participants'],          // [ASSUME] Typ vom DB-Treiber (String/Int) wird akzeptiert
-        'questions'        => array_fill(0, (int)$r['questions_count'], null), // [WHY] Platzhalter nur für Anzahl
+        'maxParticipants'  => $r['max_participants'],          // [ASSUME] Typ vom Treiber (String/Int) ist für Client tolerierbar
+        'questions'        => array_fill(0, (int)$r['questions_count'], null), // [WHY] Nur Anzahl signalisieren, Inhalte separat laden
         'questionsCount'   => (int)$r['questions_count'],
     ];
 }, $rows);
 
 echo json_encode($result);
-// [IO] Liefert reines Array ohne Hülle; Client muss leeres Array korrekt behandeln.
+// [IO] Liefert Array ohne Wrapper/ok-Flag; Client muss leeres Array korrekt interpretieren.
+// [PERF] Für viele Räume kann die participants-Nachladung groß werden; Pagination/Limit im Hauptquery erwägen. [TODO]

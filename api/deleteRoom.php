@@ -10,7 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit; // [IO] CORS-Preflight ohne Verarbeitung
 }
 
-require __DIR__ . '/db.php';
+require __DIR__ . '/dbConnection.php';
 
 // [HOW] Request-Body einlesen und minimale Typ-/Range-Checks
 $input = json_decode(file_get_contents('php://input'), true);
@@ -24,7 +24,7 @@ if ($roomID <= 0 || $userID <= 0) {
 }
 
 // [WHY] Autorisierung: Nur Host (Room.userID) darf löschen
-$st = $pdo->prepare("SELECT userID FROM Room WHERE roomID = :roomID");
+$st = $pdo->prepare("SELECT userID FROM Room WHERE roomID = :roomID"); // [HOW] Prepared Statement verhindert SQL-Injection
 $st->execute([':roomID' => $roomID]);
 $room = $st->fetch();
 
@@ -41,6 +41,7 @@ if ((int)$room['userID'] !== $userID) {
 }
 
 // [WARN] Authentisierung fehlt: userID kommt aus dem Body; in Prod via Token/Session prüfen.
+// [ASSUME] Keine parallelen Änderungen an Room.userID zwischen Check und Delete (TOCTOU-Risiko gering, aber möglich).
 
 // [WHY] Transaktion garantiert atomare Löschung über mehrere Tabellen
 $pdo->beginTransaction();
@@ -52,9 +53,11 @@ try {
 
     // [HOW] Raum selbst löschen; greift erst nach Entfernen der Kind-Datensätze
     $pdo->prepare("DELETE FROM Room WHERE roomID = :roomID")->execute([':roomID' => $roomID]);
+    // [ASSUME] Keine weiteren Tabellen mit roomID-FKs; sonst: erweitern oder CASCADE nutzen.
+    // [PERF] Mit FK-Cascade würde ein einzelnes DELETE auf Room genügen (weniger Roundtrips).
 
     $pdo->commit();
-    echo json_encode(['ok' => true, 'deletedRoomID' => $roomID]);
+    echo json_encode(['ok' => true, 'deletedRoomID' => $roomID]); // [WHY] Liefert Idempotenz-nahes Ergebnis (bei erneutem Aufruf folgt 404)
 } catch (Exception $e) {
     $pdo->rollBack(); // [ERR] Konsistenz bei Fehler wiederherstellen
     http_response_code(500);
@@ -62,3 +65,5 @@ try {
 }
 
 // [PERF] FK-Cascades + Indexe auf roomID reduzieren Roundtrips und vereinfachen Code. [TODO] Prüfen/aktivieren
+// [WARN] Potenzielle Deadlocks bei konkurrierenden Lösch-/Schreibvorgängen; konsistente Löschreihenfolge/Indexe helfen.
+// [ASSUME] Standard-Transaction-Isolation (REPEATABLE READ/READ COMMITTED) ist ausreichend für diesen Use-Case.

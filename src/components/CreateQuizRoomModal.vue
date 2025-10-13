@@ -99,7 +99,7 @@ export default {
   // JK: Prop via v-model kommt aus Dashboard
   props: {
     modelValue: { type: Boolean, default: false },
-    // Falls du eine feste Quiz-ID nutzen willst, hier übergeben; sonst passe addRooms.php an
+    // Falls du eine feste Quiz-ID nutzen willst, hier übergeben; sonst passe addRoom.php an
     defaultQuizID: { type: Number, default: 1 }
   },
   emits: ['update:modelValue', 'created'],
