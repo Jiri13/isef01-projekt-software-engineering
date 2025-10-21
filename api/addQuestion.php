@@ -1,5 +1,4 @@
 <?php
-//verst.
 // api/addQuestion.php
 // [WHY] Endpoint zum Anlegen einer Frage. Unterstützt direktes Mitliefern von Antwortoptionen (Array)
 // oder das reine Anlegen einer Frage (kollaboratives Workflow).
@@ -17,7 +16,11 @@ require __DIR__ . '/dbConnection.php'; // erwartet $pdo (PDO)
 
 //Eingabedaten parsen
 $input = json_decode(file_get_contents('php://input'), true);
-if (!$input) { http_response_code(400); echo json_encode(['error'=>'Invalid or missing JSON body']); exit; }
+if (!$input) {
+    http_response_code(400);
+    echo json_encode(['error'=>'Invalid or missing JSON body']); 
+    exit;
+}
 
 /* Expected JSON:
 {
@@ -34,21 +37,21 @@ if (!$input) { http_response_code(400); echo json_encode(['error'=>'Invalid or m
 */
 
 //Werte aus dem JSON herausziehen und Standardwerte setzen
-$moduleID = isset($input['moduleID']) ? (int)$input['moduleID'] : 0;
-$questionText = trim((string)($input['questionText'] ?? ''));
+$quizID = isset($input['quizID']) ? (int)$input['quizID'] : 0;
+$question_text = trim((string)($input['question_text'] ?? ''));
 $typeIn = strtolower(trim((string)($input['questionType'] ?? 'mc')));
 $validTypes = ['mc','text'];
 $type = in_array($typeIn, $validTypes, true) ? $typeIn : 'mc';
 $diffIn = strtolower(trim((string)($input['difficulty'] ?? 'medium')));
 $validDiffs = ['easy','medium','hard'];
 $difficulty = in_array($diffIn, $validDiffs, true) ? $diffIn : 'medium';
-$creatorID = isset($input['creatorID']) ? (int)$input['creatorID'] : 0;
+$userID = isset($input['userID']) ? (int)$input['userID'] : 0;
 $options = isset($input['options']) && is_array($input['options']) ? $input['options'] : [];
 
 // Mindestangaben prüfen
-if ($moduleID <= 0 || $questionText === '' || $creatorID <= 0) {
+if ($quizID <= 0 || $question_text === '' || $userID <= 0) {
     http_response_code(400);
-    echo json_encode(['error'=>'moduleID, questionText and creatorID are required']);
+    echo json_encode(['error'=>'moduleID, questionText and userID are required']);
     exit;
 }
 
@@ -56,34 +59,34 @@ try {
     // Begin TX: Frage + Optionen atomar anlegen
     $pdo->beginTransaction();
 
-    // Optional: prüfen, ob Modul existiert
-    $stM = $pdo->prepare("SELECT 1 FROM Module WHERE moduleID = :m LIMIT 1");
-    $stM->execute([':m'=>$moduleID]);
-    if (!$stM->fetch()) {  // Wenn kein Modul gefunden wurde
+    // Optional: prüfen, ob Quiz existiert
+    $stM = $pdo->prepare("SELECT 1 FROM Quiz WHERE quizID = :m LIMIT 1");
+    $stM->execute([':m'=>$quizID]);
+    if (!$stM->fetch()) {  // Wenn kein Quiz gefunden wurde
         $pdo->rollBack();
         http_response_code(400);
-        echo json_encode(['error'=>'moduleID not found']);
+        echo json_encode(['error'=>'quizID not found']);
         exit;
     }
 
-    // Creator prüfen
+    // User prüfen
     $stU = $pdo->prepare("SELECT 1 FROM Users WHERE userID = :u LIMIT 1");
-    $stU->execute([':u'=>$creatorID]);
+    $stU->execute([':u'=>$userID]);
     if (!$stU->fetch()) {
         $pdo->rollBack();
         http_response_code(400);
-        echo json_encode(['error'=>'creatorID not found']);
+        echo json_encode(['error'=>'userID not found']);
         exit;
     }
 
     // Frage anlegen
-    $insQ = $pdo->prepare("INSERT INTO Question (moduleID, question_text, questionType, difficulty, creatorID, created_at) VALUES (:m, :q, :t, :d, :c, :ca)");
+    $insQ = $pdo->prepare("INSERT INTO Question (quizID, question_text, questionType, difficulty, userID, created_at) VALUES (:m, :q, :t, :d, :c, :ca)");
     $insQ->execute([
         ':m'=>$moduleID,
-        ':q'=>$questionText,
+        ':q'=>$question_text,
         ':t'=>ucfirst($type), // DB-Konvention
         ':d'=>ucfirst($difficulty),
-        ':c'=>$creatorID,
+        ':c'=>$userID,
         ':ca'=>date('Y-m-d H:i:s')
     ]);
 
@@ -92,7 +95,7 @@ try {
 
     // Optionen anlegen falls übergeben (nur bei Multiple-Choice)
     if ($type === 'mc' && !empty($options)) {
-        $insOpt = $pdo->prepare("INSERT INTO AnswerOption (questionID, option_text, is_correct, explanation) VALUES (:q, :ot, :ic, :ex)");
+        $insOpt = $pdo->prepare("INSERT INTO Question_Option (questionID, option_text, is_correct, explanation) VALUES (:q, :ot, :ic, :ex)");
         foreach ($options as $opt) {
             $optText = trim((string)($opt['text'] ?? ''));
             if ($optText === '') { continue; } // skip leere Optionen
