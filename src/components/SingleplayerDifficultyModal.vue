@@ -161,7 +161,7 @@ export default {
           }
 
           // FRAGEN + OPTIONEN zum ausgewählten Quiz
-          const { data } = await axios.get('/api/questionsWithOptions.php', {
+          const { data } = await axios.get('/api/getQuizQuestions.php', {
             params: { quizID: this.selectedQuizID }
           })
           const questions = Array.isArray(data?.questions) ? data.questions : []
@@ -199,7 +199,7 @@ export default {
           const diff = (this.selectedDifficulty || 'easy').toLowerCase()
 
           // FRAGEN + OPTIONEN aus Katalog (by difficulty)
-          const { data } = await axios.get('/api/questionsByDifficultyWithOptions.php', {
+          const { data } = await axios.get('/api/getQuestionsByDifficulty.php', {
             params: { difficulty: diff, limit: 20 }
           })
           let questions = Array.isArray(data?.questions) ? data.questions : []
@@ -279,7 +279,7 @@ export default {
   async mounted() {
     try {
       this.loading = true
-      const { data } = await axios.get('/api/quizzesCatalogue.php', {
+      const { data } = await axios.get('/api/getQuizzes.php', {
         params: { userID: this.sessionStore.userID }
       })
       this.quizzes = Array.isArray(data) ? data : []

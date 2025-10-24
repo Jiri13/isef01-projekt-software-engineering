@@ -2,6 +2,11 @@
     <DashboardNavbar />
 
     <div class="container" style="margin-top: 24px;">
+        <!-- Neuer Button zum Erstellen einer Frage -->
+    <div style="text-align: right; margin-bottom: 12px;">
+    <button class="btn btn-primary" @click="openNewQuestion">➕ Neue Frage hinzufügen</button>
+    </div>
+
         <div v-if="questions.length === 0" class="card" style="text-align: center; padding: 24px;">
             <h3>📝 Noch keine Fragen gefunden</h3>
             <p style="color: #666;">Erstelle Fragen unter <code>src/files/questions.json</code> oder lade welche hoch.</p>
@@ -107,7 +112,8 @@
 
 <script>
 import DashboardNavbar from './DashboardNavbar.vue';
-import questionsFile from '@/files/questions.json';
+//import questionsFile from '@/files/questions.json';
+import axios from 'axios';
 
 function normalize(q) {
     // Map incoming JSON shape to the local shape used by the component
@@ -133,27 +139,62 @@ export default {
     data() {
         return {
             // create editable, normalized copy of imported questions
-            questions: Array.isArray(questionsFile) ? questionsFile.map(normalize) : [],
+            questions: [], //Array.isArray(questionsFile) ? questionsFile.map(normalize) : [],
             showModal: false,
             selectedQuestion: null
         };
     },
+
+    //hinzugefügt von mir:
+    async mounted() {
+    try {
+        const response = await axios.get('/api/getQuestions.php');
+        if (response.data && Array.isArray(response.data)) {
+            this.questions = response.data.map(q => normalize(q));
+        } else {
+            console.error('Unerwartetes Datenformat:', response.data);
+        }
+        } catch (err) {
+        console.error('Fehler beim Laden der Fragen:', err);
+        }
+    },
+
     methods: {
+
+        openNewQuestion() {
+        this.selectedQuestion = {
+            id: 'temp-' + Date.now(), // temporäre ID bis gespeichert
+            text: '',
+            type: 'multiple_choice',
+            options: ['', ''],
+            correctAnswer: 0,
+            difficulty: 'medium',
+            explanation: '',
+            timeLimit: 30,
+            quizID: 1,   // fest, bis Quizsystem fertig ist
+            userID: 1    // Beispielbenutzer
+        };
+        this.showModal = true;
+        },
+
+
         openEdit(id) {
             const q = this.questions.find(x => x.id === id);
-            if (!q) return;
-                        console.log('openEdit called for id=', id, 'found:', !!q);
-                        // deep copy so changes aren't applied until Save
-                        this.selectedQuestion = JSON.parse(JSON.stringify(q));
+            if (!q) {
+                return;
+            }
+            console.log('openEdit called for id=', id, 'found:', !!q);
+            // deep copy so changes aren't applied until Save
+            this.selectedQuestion = JSON.parse(JSON.stringify(q));
             // ensure options array exists for editing
             if (!Array.isArray(this.selectedQuestion.options)) this.selectedQuestion.options = [];
-                        // make modal visible after we've prepared the selectedQuestion
-                        this.showModal = true;
-                        this.$nextTick(() => {
-                            // focus the textarea if present
-                            const ta = document.querySelector('.modal-content textarea');
-                            if (ta) ta.focus();
-                        });
+            // make modal visible after we've prepared the selectedQuestion
+            this.showModal = true;
+            this.$nextTick(() => {
+                // focus the textarea if present
+                const ta = document.querySelector('.modal-content textarea');
+                if (ta) ta.focus();
+            });
         },
         editQuestion(id) {
             // kept for compatibility: open modal
@@ -163,7 +204,7 @@ export default {
             this.selectedQuestion = null;
             this.showModal = false;
         },
-        saveQuestion() {
+        async saveQuestion() {
             if (!this.selectedQuestion) return;
             console.log('saveQuestion called for id=', this.selectedQuestion.id);
             // basic validation
@@ -185,25 +226,79 @@ export default {
                     this.selectedQuestion.correctAnswer = 0;
                 }
             }
+            try {
+                const payload = {
+                    questionID: this.selectedQuestion.id,
+                    quizID: this.selectedQuestion.quizID || 1,
+                    userID: this.selectedQuestion.userID || 1,
+                    text: this.selectedQuestion.text,
+                    type: this.selectedQuestion.type,
+                    options: Array.isArray(this.selectedQuestion.options)
+                        ? this.selectedQuestion.options.map((opt, idx) => ({
+                            text: typeof opt === 'string' ? opt : opt.text,
+                            isCorrect: idx === this.selectedQuestion.correctAnswer,
+                        }))
+                        : [],
+                    difficulty: this.selectedQuestion.difficulty,
+                    explanation: this.selectedQuestion.explanation,
+                    timeLimit: this.selectedQuestion.timeLimit,
+                };
 
-            // Merge back into questions array
-            const idx = this.questions.findIndex(q => q.id === this.selectedQuestion.id);
-            if (idx !== -1) {
-                // overwrite
-                this.questions.splice(idx, 1, JSON.parse(JSON.stringify(this.selectedQuestion)));
-            } else {
-                this.questions.push(JSON.parse(JSON.stringify(this.selectedQuestion)));
+                let response;
+
+                // ✅ Entscheiden: Neue Frage oder vorhandene aktualisieren?
+                if (!this.selectedQuestion.id || String(this.selectedQuestion.id).startsWith('temp')) {
+                    response = await axios.post('/api/addQuestion.php', payload);
+                } else {
+                    response = await axios.post('/api/updateQuestion.php', payload);
+                }
+
+                const data = response.data;
+
+                if (data && data.ok) {
+                    if (!this.selectedQuestion.id || String(this.selectedQuestion.id).startsWith('temp')) {
+                        this.selectedQuestion.id = data.questionID;
+                        this.questions.push(JSON.parse(JSON.stringify(this.selectedQuestion)));
+                    } else {
+                        const idx = this.questions.findIndex(q => q.id === this.selectedQuestion.id);
+                        if (idx !== -1) {
+                            this.questions[idx] = JSON.parse(JSON.stringify(this.selectedQuestion));
+                        }
+                    }
+                    alert('Frage erfolgreich gespeichert.');
+                } else {
+                    alert('Fehler beim Speichern: ' + (data.error || 'Unbekannt'));
+                }
+
+            } catch (err) {
+                console.error('Fehler bei saveQuestion:', err);
+                alert('Serverfehler: ' + err.message);
             }
 
             this.closeModal();
             this.$emit('question-updated', this.selectedQuestion);
-            // Note: changes are local only. To persist, add a backend or write to filesystem during development.
         },
-        deleteQuestion(id) {
+
+        async deleteQuestion(id) {
             if (!confirm('Sind Sie sicher, dass Sie diese Frage löschen möchten?')) return;
-            this.questions = this.questions.filter(q => q.id !== id);
-            this.$emit('question-deleted', id);
+
+            try {
+                const payload = { questionID: id };
+                const { data } = await axios.post('/api/deleteQuestion.php', payload);
+
+                if (data && data.ok) {
+                    // lokal entfernen, wenn Server bestätigt
+                    this.questions = this.questions.filter(q => q.id !== id);
+                    alert('Frage erfolgreich gelöscht.');
+                } else {
+                    alert('Fehler beim Löschen: ' + (data.error || 'Unbekannt'));
+                }
+            } catch (err) {
+                console.error('Fehler bei deleteQuestion:', err);
+                alert('Serverfehler: ' + err.message);
+            }
         },
+
         addOption() {
             if (!this.selectedQuestion) return;
             if (!Array.isArray(this.selectedQuestion.options)) this.selectedQuestion.options = [];
