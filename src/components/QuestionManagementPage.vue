@@ -145,7 +145,7 @@ export default {
         };
     },
 
-    //hinzugefügt von mir:
+    // Beim Mounten: Fragen vom Server laden
     async mounted() {
     try {
         const response = await axios.get('/api/getQuestions.php');
@@ -246,7 +246,7 @@ export default {
 
                 let response;
 
-                // ✅ Entscheiden: Neue Frage oder vorhandene aktualisieren?
+                // Entscheiden: Neue Frage oder vorhandene aktualisieren?
                 if (!this.selectedQuestion.id || String(this.selectedQuestion.id).startsWith('temp')) {
                     response = await axios.post('/api/addQuestion.php', payload);
                 } else {
