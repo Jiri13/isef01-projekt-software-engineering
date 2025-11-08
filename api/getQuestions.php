@@ -1,4 +1,6 @@
 <?php
+// api/getQuestions.php
+// [WHY] Endpoint zum Abrufen aller Fragen inklusive deren Antwortoptionen
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 require __DIR__ . '/dbConnection.php';

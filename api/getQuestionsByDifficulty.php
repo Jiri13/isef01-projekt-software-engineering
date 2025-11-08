@@ -1,5 +1,6 @@
 <?php
 // api/getQuestionsByDifficulty.php
+// [WHY] Endpoint zum Abrufen von Fragen nach Schwierigkeit mit deren Antwortoptionen
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, OPTIONS');
@@ -17,18 +18,18 @@ if (!in_array($difficulty, $validDiffs)) {
 }
 
 try {
-    // 1. Fragen nach Schwierigkeit holen
+    // 1: Fragen nach Schwierigkeit holen (mit passenden Aliasen)
     $stmt = $pdo->prepare("
         SELECT
-            questionID,
-            quizID,
-            question_text AS text,
-            question_type AS type,
-            difficulty,
-            explanation,
-            time_limit AS timeLimit
-        FROM Question
-        WHERE difficulty = :diff
+            q.questionID AS questionId,
+            q.quizID,
+            q.question_text AS questionText,
+            q.question_type AS questionType,
+            q.difficulty,
+            q.explanation,
+            q.time_limit AS timeLimit
+        FROM Question q
+        WHERE q.difficulty = :diff
         ORDER BY RAND()
         LIMIT :lim
     ");
@@ -42,37 +43,44 @@ try {
         exit;
     }
 
-    // 2. Optionen laden
-    $ids = array_column($questions, 'questionID');
+    // 2: Alle Frage-IDs sammeln und Optionen abrufen
+    $ids = array_column($questions, 'questionId');
     $in = implode(',', array_fill(0, count($ids), '?'));
+
     $optStmt = $pdo->prepare("
-        SELECT questionID, option_text AS text, is_correct AS isCorrect
-        FROM Question_Option
-        WHERE questionID IN ($in)
+        SELECT
+            qo.questionID,
+            qo.optionID AS optionId,
+            qo.option_text AS optionText,
+            qo.is_correct AS isCorrect
+        FROM Question_Option qo
+        WHERE qo.questionID IN ($in)
     ");
     $optStmt->execute($ids);
     $options = $optStmt->fetchAll(PDO::FETCH_ASSOC);
 
+    // 3: Optionen nach Frage gruppieren
     $byQ = [];
     foreach ($options as $o) {
         $byQ[$o['questionID']][] = [
-            'text' => $o['text'],
+            'optionId' => (int)$o['optionId'],
+            'optionText' => $o['optionText'],
             'isCorrect' => (bool)$o['isCorrect']
         ];
     }
 
-    // 3. Zusammenbauen
+    // 4: Endgültiges JSON aufbauen
     $res = [];
     foreach ($questions as $q) {
         $res[] = [
-            'questionId' => (int)$q['questionID'],
-            'quizID' => (int)$q['quizID'],
-            'text' => $q['text'],
-            'type' => $q['type'],
-            'difficulty' => $q['difficulty'],
-            'explanation' => $q['explanation'],
-            'timeLimit' => (int)$q['timeLimit'],
-            'options' => $byQ[$q['questionID']] ?? []
+            'questionId'   => (int)$q['questionId'],
+            'quizID'       => (int)$q['quizID'],
+            'questionText' => $q['questionText'],
+            'questionType' => $q['questionType'],
+            'difficulty'   => $q['difficulty'],
+            'explanation'  => $q['explanation'],
+            'timeLimit'    => (int)$q['timeLimit'],
+            'options'      => $byQ[$q['questionId']] ?? []
         ];
     }
 
@@ -80,5 +88,8 @@ try {
 
 } catch (Throwable $e) {
     http_response_code(500);
-    echo json_encode(['error' => 'Fehler beim Laden der Katalogfragen', 'details' => $e->getMessage()]);
+    echo json_encode([
+        'error' => 'Fehler beim Laden der Katalogfragen',
+        'details' => $e->getMessage()
+    ]);
 }

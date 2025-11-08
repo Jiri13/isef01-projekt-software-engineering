@@ -1,6 +1,6 @@
 <?php
 // api/updateQuestion.php
-// Endpoint zum Aktualisieren einer bestehenden Frage + Antwortoptionen
+// [WHY]Endpoint zum Aktualisieren einer bestehenden Frage + Antwortoptionen
 
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);

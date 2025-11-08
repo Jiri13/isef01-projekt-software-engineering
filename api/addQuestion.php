@@ -1,7 +1,6 @@
 <?php
-
 // api/addQuestion.php
-// [WHY] Endpoint zum Anlegen einer Frage. Unterstützt direktes Mitliefern von Antwortoptionen (Array)
+// [WHY] Endpoint zum Anlegen einer Frage. Unterstützt direktes Mitliefern von Antwortoptionen in einem Array
 // Liefert questionID zurück.
 
 header('Content-Type: application/json');

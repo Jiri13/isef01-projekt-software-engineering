@@ -1,5 +1,6 @@
 <?php
 // api/getQuizzes.php
+// [WHY] Endpoint zum Abrufen aller Quizzes inklusive Erstellername
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, OPTIONS');
@@ -19,15 +20,14 @@ try {
             q.quiz_description,
             q.category,
             q.created_at,
-            u.username AS creatorName
+            CONCAT(u.first_name, ' ', u.last_name) AS creatorName
         FROM Quiz q
-        LEFT JOIN User u ON q.userID = u.userID
-        WHERE (:userID = 0 OR q.userID = :userID)
+        LEFT JOIN Users u ON q.userID = u.userID
         ORDER BY q.created_at DESC
     ";
 
     $stmt = $pdo->prepare($sql);
-    $stmt->execute([':userID' => $userID]);
+    $stmt->execute();
     $quizzes = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     echo json_encode($quizzes, JSON_UNESCAPED_UNICODE);
