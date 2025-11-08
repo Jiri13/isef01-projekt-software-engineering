@@ -145,7 +145,7 @@ export default {
         };
     },
 
-    // Beim Mounten: Fragen vom Server laden
+    // Beim Mounten: Fragen aus der Datenbank laden
     async mounted() {
     try {
         const response = await axios.get('/api/getQuestions.php');
