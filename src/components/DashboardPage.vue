@@ -1,6 +1,5 @@
 <template>
   <DashboardNavbar />
-  <button @click.prevent="debug()">Debug</button>
 
   <Teleport to="body">
     <div v-if="isShowingSinglePlayerModal" class="modal">
@@ -160,9 +159,6 @@ export default {
   },
 
   methods: {
-    debug() {
-      console.log(this.getUserStatsFromID(this.sessionStore.userID))
-    },
     async fetchMyRooms() {
       try {
         this.loadingRooms = true

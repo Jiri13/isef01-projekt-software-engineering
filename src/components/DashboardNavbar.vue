@@ -7,7 +7,6 @@
                     <span v-if="sessionStore.userID && usersData[sessionStore.userID - 1]">👋 {{
                         usersData[sessionStore.userID - 1].first_name }}</span>
                     <button class="btn btn-secondary" @click.prevent="logout()">Abmelden</button>
-                    <button @click.prevent="debug()">Debug</button>
                 </div>
             </div>
         </div>
@@ -33,9 +32,6 @@ export default {
             this.sessionStore.loggedIn = false;
             this.sessionStore.userID = null;
             router.push('/')
-        },
-        debug() {
-            console.log("Debug")
         },
         returnToDashboard() {
             router.push('/');

@@ -174,15 +174,6 @@ export default {
     }
   },
   methods: {
-    debug() {
-      console.log('Store:', this.singleplayerStore)
-      console.log('CurrentQuestion:', this.currentQuestion)
-      console.log('SelectedOptionId:', this.selectedOptionId)
-    },
-    debugCancelQuiz() {
-      this.resetSingleplayerStore()
-      router.push('/')
-    },
     goToDashboard() {
       this.resetSingleplayerStore()
       router.push('/')

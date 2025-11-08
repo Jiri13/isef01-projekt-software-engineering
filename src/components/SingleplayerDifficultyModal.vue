@@ -96,7 +96,6 @@
           <button type="button" class="btn btn-primary" @click.prevent="startSingleplayer()" style="flex: 1;">
             ✅ Spiel starten
           </button>
-          <button @click.prevent="DebugFunction">Debug-Button</button>
         </div>
       </div>
 
@@ -265,15 +264,6 @@ export default {
 
     getQuizzesFromUserQuizCatalogue() {
       return Array.isArray(this.quizzes) ? this.quizzes : []
-    },
-
-    DebugFunction() {
-      console.log('mode:', this.mode)
-      console.log('selectedQuizID:', this.selectedQuizID)
-      console.log('selectedDifficulty:', this.selectedDifficulty)
-      console.log('store.quiz:', this.singleplayerStore.quiz)
-      console.log('store.questions[0]:', this.singleplayerStore.questions[0])
-      console.log('store.currentQuestionIndex:', this.singleplayerStore.currentQuestionIndex)
     }
   },
   async mounted() {

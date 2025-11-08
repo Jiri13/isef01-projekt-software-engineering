@@ -25,7 +25,6 @@
                     🚀 Anmelden
                 </button>
 
-                <button @click.prevent="debugFunction()"> Debug Button </button>
             </form>
 
             <div style="margin-top: 24px; padding: 16px; background: #f8f9fa; border-radius: 8px;">
@@ -80,12 +79,6 @@ export default {
         },
         testLogin() {
             router.push('/dashboard')
-        },
-        debugFunction() {
-            console.log("Debug Function called")
-            usersData.forEach((user) => {
-                console.log(user.id)
-            });
         }
     }
 }
