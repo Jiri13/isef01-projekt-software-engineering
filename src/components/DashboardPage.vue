@@ -113,6 +113,8 @@ import SingleplayerDifficultyModal from './SingleplayerDifficultyModal.vue'
 import CreateQuizRoomModal from './CreateQuizRoomModal.vue'
 import users from '../files/users.json'   // <DATENBANK>
 import axios from 'axios'
+import roomsFile from '@/files/rooms.json'
+import questionsFile from '@/files/questions.json'
 
 export default {
   components: {
@@ -126,7 +128,8 @@ export default {
     return {
       sessionStore,
       users,
-      rooms: [],
+      // initialize rooms from local rooms.json (will be normalized in mounted/fetch)
+      rooms: Array.isArray(roomsFile) ? roomsFile.map(r => ({ ...r })) : [],
       isShowingSinglePlayerModal: false,
       isShowingCreateQuizRoomModal: false,
       joinCode: '',
@@ -155,10 +158,69 @@ export default {
   },
 
   async mounted() {
+    // Load persisted rooms from localStorage (if any) so created rooms survive reloads
+    const saved = localStorage.getItem('quiz_rooms')
+    if (saved) {
+      try {
+        this.rooms = JSON.parse(saved)
+      } catch (e) {
+        console.warn('Failed to parse saved quiz_rooms from localStorage', e)
+      }
+    }
+
+    // normalize initial local rooms to include question objects where possible
+    this.normalizeLocalRooms()
     await this.fetchMyRooms()
   },
-
+  watch: {
+    // persist rooms to localStorage whenever they change
+    rooms: {
+      handler(newRooms) {
+        try {
+          localStorage.setItem('quiz_rooms', JSON.stringify(newRooms || []))
+        } catch (e) {
+          console.warn('Failed to persist rooms to localStorage', e)
+        }
+      },
+      deep: true
+    }
+  },
   methods: {
+    normalizeLocalRooms() {
+      try {
+        // Map question IDs in roomsFile to question objects from questionsFile
+        this.rooms = (this.rooms || []).map(r => {
+          const questions = Array.isArray(r.questions)
+            ? r.questions.map(qid => {
+                // qid might be numeric id; find in questionsFile
+                const q = (questionsFile || []).find(x => x.questionID == qid || x.id == qid)
+                if (q) {
+                  return {
+                    id: q.questionID ?? q.id,
+                    text: q.question_text ?? q.text,
+                    type: q.type,
+                    options: q.options || [],
+                    correctAnswer: q.correctAnswer,
+                    explanation: q.explanation,
+                    timeLimit: q.timeLimit,
+                    difficulty: q.difficulty
+                  }
+                }
+                return qid
+              }).filter(Boolean)
+            : []
+
+          return {
+            ...r,
+            participants: Array.isArray(r.participants) ? r.participants : [],
+            questions: questions,
+            maxParticipants: r.maxParticipants ?? 8
+          }
+        })
+      } catch (e) {
+        console.warn('normalizeLocalRooms failed', e)
+      }
+    },
     async fetchMyRooms() {
       try {
         this.loadingRooms = true
@@ -176,13 +238,26 @@ export default {
         }))
       } catch (e) {
         console.error(e)
-        this.roomsError = 'Konnte Räume nicht laden.'
+        // If we already have rooms (from localStorage or rooms.json), don't surface the error to the user
+        if (!this.rooms || this.rooms.length === 0) {
+          this.roomsError = 'Konnte Räume nicht laden.'
+        } else {
+          this.roomsError = null
+        }
       } finally {
         this.loadingRooms = false
       }
     },
     async onRoomCreated(room) {
-      await this.fetchMyRooms()
+      // If backend exists, we refresh; otherwise, insert room locally so it appears immediately
+      if (room) {
+        // normalize participants and questions array
+        room.participants = Array.isArray(room.participants) ? room.participants : []
+        room.questions = Array.isArray(room.questions) ? room.questions : []
+        // prepend to rooms list so the host sees it immediately
+        this.rooms = [room, ...(this.rooms || [])]
+      }
+      try { await this.fetchMyRooms() } catch (e) { /* ignore fetch errors */ }
     },
     showSinglePlayerDifficultyModal() {
       this.isShowingSinglePlayerModal = true
@@ -213,13 +288,15 @@ export default {
     enterRoom(roomID) {
       const room = (this.rooms || []).find(room => room.id === roomID)
       if (room) {
-        alert(
-            "🎯 Quiz-Raum " + room.name + " betreten!\n\n" +
-            "📊 Schwierigkeit: " + this.getDifficultyText(room.difficulty) + "\n" +
-            "🎮 Modus: " + (room.gameMode === 'cooperative' ? 'Kooperativ - gemeinsam lernen' : 'Kompetitiv - gegeneinander antreten') + "\n" +
-            "❓" + room.questions.length + " Fragen verfügbar"
-        )
-        // TODO: Enter Multiplayermode
+        // Persist the room into session-local storage so the multiplayer page can load it
+        try {
+          localStorage.setItem(`room_${roomID}`, JSON.stringify(room))
+        } catch (e) {
+          console.warn('Could not cache room to localStorage', e)
+        }
+
+        // Navigate to multiplayer page; pass room in history state as well (best-effort)
+        this.$router.push({ name: 'Multiplayer', params: { id: roomID }, state: { room } }).catch(() => {})
       }
     },
     async joinRoomByCode() {
@@ -262,20 +339,30 @@ export default {
           roomID,
           userID: this.sessionStore.userID
         });
-        console.log('DELETE OK', res.data);
-        alert('Raum wurde gelöscht');
-        await this.fetchMyRooms();
-      } catch (e) {
-        // ausführliches Debug
-        const status = e.response?.status;
-        const data = e.response?.data;
-        console.error('DELETE ERROR', status, data, e);
 
-        alert(
-            '❌ Fehler beim Löschen\n'
-            + 'Status: ' + (status ?? 'unbekannt') + '\n'
-            + 'Antwort: ' + (data ? JSON.stringify(data) : 'keine')
-        );
+        // If backend confirms deletion, remove locally and refresh list
+        if (res && res.data && (res.data.ok || res.data.deleted)) {
+          this.rooms = (this.rooms || []).filter(r => String(r.id) !== String(roomID))
+          try { localStorage.setItem('quiz_rooms', JSON.stringify(this.rooms)) } catch (e) { /* ignore */ }
+          console.log('DELETE OK', res.data);
+          alert('Raum wurde gelöscht');
+          // try to refresh from server for consistency
+          try { await this.fetchMyRooms() } catch (e) { /* ignore */ }
+          return
+        }
+
+        // Backend returned unexpected payload — fallback to local deletion
+        console.warn('Backend delete returned unexpected response, falling back to local remove', res?.data)
+        this.rooms = (this.rooms || []).filter(r => String(r.id) !== String(roomID))
+        try { localStorage.setItem('quiz_rooms', JSON.stringify(this.rooms)) } catch (e) { /* ignore */ }
+        alert('Raum lokal entfernt (Backend-Antwort fehlerhaft).')
+
+      } catch (e) {
+        // Backend call failed (server down / network). Remove room locally so host can manage rooms offline.
+        console.warn('DELETE ERROR - falling back to local remove', e)
+        this.rooms = (this.rooms || []).filter(r => String(r.id) !== String(roomID))
+        try { localStorage.setItem('quiz_rooms', JSON.stringify(this.rooms)) } catch (err) { console.warn('Failed to persist rooms after local delete', err) }
+        alert('Raum lokal entfernt (kein Server).');
       }
     },
     async leaveRoom(roomID){

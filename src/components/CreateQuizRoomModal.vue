@@ -1,157 +1,111 @@
 <template>
-  <div class="modal">
-    <div class="modal-content">
-      <h2 style="margin-bottom: 24px;">🏠 Neuen Quiz-Raum erstellen</h2>
+  <div class="modal-inner" style="max-width:640px;width:100%;background:white;border-radius:8px;padding:20px;">
+    <h2>🏠 Neuen Quiz-Raum erstellen</h2>
+    <form @submit.prevent="createRoom">
+      <div class="form-group">
+        <label class="form-label">Raumname</label>
+        <input class="form-input" v-model="form.name" required />
+      </div>
 
-      <!-- Vue: submit über Methode statt inline-HTML-Handler -->
-      <form @submit.prevent="submit">
-        <div class="form-group">
-          <label class="form-label">Raum Name</label>
-          <input
-              type="text"
-              id="roomName"
-              class="form-input"
-              v-model.trim="name"
-              required
-              placeholder="Wirtschaftsinformatik Grundlagen"
-          />
-        </div>
+      <div class="form-group">
+        <label class="form-label">Spielmodus</label>
+        <select class="form-input" v-model="form.gameMode">
+          <option value="cooperative">Kooperativ</option>
+          <option value="competitive">Kompetitiv</option>
+        </select>
+      </div>
 
-        <div class="form-group">
-          <label class="form-label">Schwierigkeitsgrad</label>
-          <select id="roomDifficulty" class="form-input" v-model="difficulty">
-            <option value="easy">🟢 Leicht</option>
-            <option value="medium">🟡 Mittel</option>
-            <option value="hard">🔴 Schwer</option>
-          </select>
-        </div>
+      <div class="form-group">
+        <label class="form-label">Schwierigkeitsgrad</label>
+        <select class="form-input" v-model="form.difficulty">
+          <option value="easy">Leicht</option>
+          <option value="medium">Mittel</option>
+          <option value="hard">Schwer</option>
+        </select>
+      </div>
 
-        <div class="form-group">
-          <label class="form-label">Spielmodus</label>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-            <!-- Kooperativ -->
-            <input
-                type="radio" id="gm-coop" name="gameMode"
-                value="cooperative" v-model="playMode"
-                style="position:absolute;opacity:0;width:0;height:0;"
-            />
-            <label
-                for="gm-coop"
-                :style="playMode==='cooperative'
-        ? 'cursor:pointer;padding:16px;border:2px solid #007bff;border-radius:8px;text-align:center;box-shadow:0 0 0 2px rgba(0,123,255,.15);'
-        : 'cursor:pointer;padding:16px;border:2px solid #ddd;border-radius:8px;text-align:center;'">
-              <div style="font-weight:600;color:#007bff;">🤝 Kooperativ</div>
-            </label>
+      <div class="form-group">
+        <label class="form-label">Anzahl Fragen</label>
+        <input type="number" min="1" max="50" class="form-input" v-model.number="form.questionCount" />
+      </div>
 
-            <!-- Kompetitiv -->
-            <input
-                type="radio" id="gm-comp" name="gameMode"
-                value="competitive" v-model="playMode"
-                style="position:absolute;opacity:0;width:0;height:0;"
-            />
-            <label
-                for="gm-comp"
-                :style="playMode==='competitive'
-        ? 'cursor:pointer;padding:16px;border:2px solid #dc3545;border-radius:8px;text-align:center;box-shadow:0 0 0 2px rgba(220,53,69,.15);'
-        : 'cursor:pointer;padding:16px;border:2px solid #ddd;border-radius:8px;text-align:center;'">
-              <div style="font-weight:600;color:#dc3545;">⚔️ Kompetitiv</div>
-            </label>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Max. Teilnehmer</label>
-          <input
-              type="number"
-              id="maxParticipants"
-              class="form-input"
-              v-model.number="maxParticipants"
-              :min="2" :max="20"
-          >
-        </div>
-
-        <div v-if="error" class="alert alert-error" style="margin-bottom:8px;">{{ error }}</div>
-
-        <div style="display: flex; gap: 12px;">
-          <button
-              type="button"
-              class="btn btn-secondary"
-              @click.prevent="$emit('update:modelValue', false)"
-              :disabled="loading"
-              style="flex: 1;"
-          >
-            Abbrechen
-          </button>
-          <button type="submit" class="btn btn-primary" :disabled="loading" style="flex: 1;">
-            {{ loading ? '… wird erstellt' : '✅ Raum erstellen' }}
-          </button>
-        </div>
-      </form>
-    </div>
+      <div style="display:flex;gap:12px;margin-top:16px;">
+        <button type="button" class="btn btn-secondary" @click="close">Abbrechen</button>
+        <button type="submit" class="btn btn-primary">Raum erstellen</button>
+      </div>
+    </form>
   </div>
 </template>
 
 <script>
-import axios from 'axios'
+import questionsFile from '@/files/questions.json'
 import { useSessionStore } from '@/stores/session'
 
 export default {
-  // JK: Prop via v-model kommt aus Dashboard
+  emits: ['update:modelValue','created'],
   props: {
-    modelValue: { type: Boolean, default: false },
-    // Falls du eine feste Quiz-ID nutzen willst, hier übergeben; sonst passe addRoom.php an
-    defaultQuizID: { type: Number, default: 1 }
+    modelValue: { type: Boolean, default: false }
   },
-  emits: ['update:modelValue', 'created'],
   data() {
-    const sessionStore = useSessionStore()
     return {
-      sessionStore,
-      name: '',
-      difficulty: 'medium',   // aus deinem Select
-      playMode: 'cooperative',// aus deinen Radio-Buttons
-      maxParticipants: 8,     // aus deinem Number-Input
-      loading: false,
-      error: null
+      form: {
+        name: '',
+        gameMode: 'cooperative',
+        difficulty: 'easy',
+        questionCount: 6,
+        maxParticipants: 8
+      }
     }
   },
   methods: {
-    async submit() {
-      this.error = null
-      if (!this.name) {
-        this.error = 'Bitte einen Raumnamen angeben.'
-        return
+    close() {
+      this.$emit('update:modelValue', false)
+    },
+    createRoom() {
+      // basic validation
+      if (!this.form.name.trim()) {
+        alert('Bitte einen Raumnamen angeben.');
+        return;
       }
-      try {
-        this.loading = true
-        const payload = {
-          name: this.name,
-          playMode: this.playMode,                   // 'cooperative' | 'competitive'
-          difficulty: this.difficulty,               // 'easy' | 'medium' | 'hard'
-          maxParticipants: this.maxParticipants,     // Zahl
-          quizID: this.defaultQuizID,                // oder aus Parent mitgeben
-          userID: this.sessionStore.userID,          // Host = angemeldeter User
-          addHostAsParticipant: true                 // Komfort: Host gleich drin
-        }
 
-        const { data } = await axios.post('/api/addRooms.php', payload)
-        if (!data?.ok) throw new Error(data?.error || 'Unbekannter Fehler')
+      const session = useSessionStore();
 
-        // Parent informieren + Modal schließen
-        this.$emit('created', data.room)
-        this.$emit('update:modelValue', false)
+      // select questions from local questions.json matching difficulty
+      const candidates = (questionsFile || []).filter(q => (q.difficulty || '').toLowerCase() === (this.form.difficulty || 'easy'))
+      const shuffled = [...candidates].sort(() => Math.random() - 0.5)
+      const selected = shuffled.slice(0, this.form.questionCount)
 
-        // Reset
-        this.name = ''
-        this.difficulty = 'medium'
-        this.playMode = 'cooperative'
-        this.maxParticipants = 8
-      } catch (e) {
-        this.error = e?.response?.data?.error || e.message || 'Fehler beim Erstellen'
-      } finally {
-        this.loading = false
+      const newRoom = {
+        id: Date.now(),
+        name: this.form.name.trim(),
+        code: Math.random().toString(36).substr(2,6).toUpperCase(),
+        hostID: session.userID || 0,
+        participants: [session.userID || 0],
+        gameMode: this.form.gameMode,
+        maxParticipants: this.form.maxParticipants,
+        questions: selected.map(q => ({
+          id: q.questionID ?? q.id ?? Date.now(),
+          text: q.question_text ?? q.text,
+          type: q.type,
+          options: q.options || [],
+          correctAnswer: q.correctAnswer,
+          explanation: q.explanation,
+          timeLimit: q.timeLimit,
+          difficulty: q.difficulty
+        })),
+        difficulty: this.form.difficulty,
+        createdAt: new Date().toISOString()
       }
+
+      // emit created — DashboardPage listens and will refresh rooms
+      this.$emit('created', newRoom)
+      this.$emit('update:modelValue', false)
     }
   }
 }
 </script>
+
+<style scoped>
+.modal-inner { }
+</style>
+

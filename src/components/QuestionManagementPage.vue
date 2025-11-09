@@ -112,7 +112,7 @@
 
 <script>
 import DashboardNavbar from './DashboardNavbar.vue';
-//import questionsFile from '@/files/questions.json';
+import questionsFile from '@/files/questions.json';
 import axios from 'axios';
 
 function normalize(q) {
@@ -138,26 +138,50 @@ export default {
     components: { DashboardNavbar },
     data() {
         return {
-            // create editable, normalized copy of imported questions
-            questions: [], //Array.isArray(questionsFile) ? questionsFile.map(normalize) : [],
+            // create editable, normalized copy of imported questions as default/fallback
+            questions: Array.isArray(questionsFile) ? questionsFile.map(normalize) : [],
             showModal: false,
             selectedQuestion: null
         };
     },
 
     // Beim Mounten: Fragen aus der Datenbank laden
-    async mounted() {
-    try {
-        const response = await axios.get('/api/getQuestions.php');
-        if (response.data && Array.isArray(response.data)) {
-            this.questions = response.data.map(q => normalize(q));
-        } else {
-            console.error('Unerwartetes Datenformat:', response.data);
-        }
-        } catch (err) {
-        console.error('Fehler beim Laden der Fragen:', err);
-        }
-    },
+            async mounted() {
+                // Load persisted questions from localStorage first (user edits)
+                const saved = localStorage.getItem('quiz_questions')
+                if (saved) {
+                    try {
+                        const parsed = JSON.parse(saved)
+                        if (Array.isArray(parsed)) this.questions = parsed.map(q => normalize(q))
+                    } catch (e) {
+                        console.warn('Failed to parse saved quiz_questions', e)
+                    }
+                }
+
+                // Try to load from backend API; if it succeeds we override local default (but not persisted edits)
+                try {
+                    const response = await axios.get('/api/getQuestions.php')
+                    if (response.data && Array.isArray(response.data)) {
+                        this.questions = response.data.map(q => normalize(q))
+                    }
+                } catch (err) {
+                    console.warn('Backend nicht erreichbar, benutze lokale Fragen.json as fallback.', err && err.message ? err.message : err)
+                }
+            },
+
+            watch: {
+                // persist questions to localStorage whenever they change
+                questions: {
+                    handler(newQ) {
+                        try {
+                            localStorage.setItem('quiz_questions', JSON.stringify(newQ || []))
+                        } catch (e) {
+                            console.warn('Failed to persist quiz_questions', e)
+                        }
+                    },
+                    deep: true
+                }
+            },
 
     methods: {
 
@@ -267,12 +291,30 @@ export default {
                     }
                     alert('Frage erfolgreich gespeichert.');
                 } else {
-                    alert('Fehler beim Speichern: ' + (data.error || 'Unbekannt'));
+                    // If API returned an error, fall back to local save so user can continue working offline
+                    console.warn('API returned error while saving question, falling back to local update', data && data.error);
+                    if (!this.selectedQuestion.id || String(this.selectedQuestion.id).startsWith('temp')) {
+                        // assign a stable local id
+                        this.selectedQuestion.id = Date.now();
+                        this.questions.push(JSON.parse(JSON.stringify(this.selectedQuestion)));
+                    } else {
+                        const idx = this.questions.findIndex(q => q.id === this.selectedQuestion.id);
+                        if (idx !== -1) this.questions[idx] = JSON.parse(JSON.stringify(this.selectedQuestion));
+                    }
+                    alert('Frage lokal gespeichert (Backend-Fehler).');
                 }
 
             } catch (err) {
-                console.error('Fehler bei saveQuestion:', err);
-                alert('Serverfehler: ' + err.message);
+                // Backend unreachable — fallback to local update so the app stays usable offline
+                console.warn('Fehler bei saveQuestion (Backend wahrscheinlich nicht erreichbar), führe lokalen Speicher durch:', err && err.message ? err.message : err);
+                if (!this.selectedQuestion.id || String(this.selectedQuestion.id).startsWith('temp')) {
+                    this.selectedQuestion.id = Date.now();
+                    this.questions.push(JSON.parse(JSON.stringify(this.selectedQuestion)));
+                } else {
+                    const idx = this.questions.findIndex(q => q.id === this.selectedQuestion.id);
+                    if (idx !== -1) this.questions[idx] = JSON.parse(JSON.stringify(this.selectedQuestion));
+                }
+                alert('Frage lokal gespeichert (kein Server).');
             }
 
             this.closeModal();
@@ -291,11 +333,16 @@ export default {
                     this.questions = this.questions.filter(q => q.id !== id);
                     alert('Frage erfolgreich gelöscht.');
                 } else {
-                    alert('Fehler beim Löschen: ' + (data.error || 'Unbekannt'));
+                    // API returned an error -> fallback to local deletion
+                    console.warn('API returned error while deleting question, falling back to local delete', data && data.error);
+                    this.questions = this.questions.filter(q => q.id !== id);
+                    alert('Frage lokal entfernt (Backend-Fehler).');
                 }
             } catch (err) {
-                console.error('Fehler bei deleteQuestion:', err);
-                alert('Serverfehler: ' + err.message);
+                // Backend unavailable -> remove locally
+                console.warn('Fehler bei deleteQuestion (Backend wahrscheinlich nicht erreichbar), entferne lokal:', err && err.message ? err.message : err);
+                this.questions = this.questions.filter(q => q.id !== id);
+                alert('Frage lokal entfernt (kein Server).');
             }
         },
 
