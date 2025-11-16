@@ -1,6 +1,7 @@
 <template>
   <div class="modal-inner" style="max-width:640px;width:100%;background:white;border-radius:8px;padding:20px;">
     <h2>🏠 Neuen Quiz-Raum erstellen</h2>
+
     <form @submit.prevent="createRoom">
       <div class="form-group">
         <label class="form-label">Raumname</label>
@@ -16,7 +17,7 @@
       </div>
 
       <div class="form-group">
-        <label class="form-label">Schwierigkeitsgrad</label>
+        <label class="form-label">Schwierigkeitsgrad (Fallback)</label>
         <select class="form-input" v-model="form.difficulty">
           <option value="easy">Leicht</option>
           <option value="medium">Mittel</option>
@@ -25,8 +26,21 @@
       </div>
 
       <div class="form-group">
-        <label class="form-label">Anzahl Fragen</label>
-        <input type="number" min="1" max="50" class="form-input" v-model.number="form.questionCount" />
+        <label class="form-label">Max. Teilnehmer</label>
+        <input type="number" min="2" max="99" class="form-input" v-model.number="form.maxParticipants" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Quiz auswählen (optional)</label>
+        <select class="form-input" v-model.number="form.quizID">
+          <option :value="0">— Kein Quiz verknüpfen —</option>
+          <option v-for="q in quizzes" :key="q.id" :value="q.id">
+            {{ q.name }} (ID: {{ q.id }})
+          </option>
+        </select>
+        <small style="color:#666;">
+          Wenn ein Quiz ausgewählt ist, werden die Fragen dieses Quizzes im Raum verwendet.
+        </small>
       </div>
 
       <div style="display:flex;gap:12px;margin-top:16px;">
@@ -39,6 +53,7 @@
 
 <script>
 import { useSessionStore } from '@/stores/session'
+import axios from 'axios'
 
 export default {
   emits: ['update:modelValue','created'],
@@ -46,58 +61,104 @@ export default {
     modelValue: { type: Boolean, default: false }
   },
   data() {
+    const session = useSessionStore()
     return {
+      session,
       form: {
         name: '',
         gameMode: 'cooperative',
         difficulty: 'easy',
-        questionCount: 6,
-        maxParticipants: 8
+        maxParticipants: 8,
+        quizID: 0
+      },
+      quizzes: [],
+      loadingQuizzes: false
+    }
+  },
+  watch: {
+    modelValue(newVal) {
+      if (newVal) {
+        this.loadQuizzes()
       }
+    }
+  },
+  mounted() {
+    if (this.modelValue) {
+      this.loadQuizzes()
     }
   },
   methods: {
     close() {
       this.$emit('update:modelValue', false)
     },
-    createRoom() {
-      // basic validation
+    async loadQuizzes() {
+      try {
+        this.loadingQuizzes = true
+        const { data } = await axios.get('/api/listQuizzes.php')
+        this.quizzes = data || []
+      } catch (e) {
+        console.error('Fehler beim Laden der Quizzes', e)
+        this.quizzes = []
+      } finally {
+        this.loadingQuizzes = false
+      }
+    },
+    async createRoom() {
       if (!this.form.name.trim()) {
-        alert('Bitte einen Raumnamen angeben.');
-        return;
+        alert('Bitte einen Raumnamen angeben.')
+        return
+      }
+      if (!this.session.userID) {
+        alert('Kein Benutzer im SessionStore gefunden.')
+        return
       }
 
-      const session = useSessionStore();
+      try {
+        const payload = {
+          name: this.form.name.trim(),
+          playMode: this.form.gameMode,
+          difficulty: this.form.difficulty,
+          maxParticipants: this.form.maxParticipants,
+          quizID: this.form.quizID > 0 ? this.form.quizID : null,
+          userID: this.session.userID,
+          addHostAsParticipant: true
+        }
 
-      const candidates = (questionsFile || []).filter(q => (q.difficulty || '').toLowerCase() === (this.form.difficulty || 'easy'))
-      const shuffled = [...candidates].sort(() => Math.random() - 0.5)
-      const selected = shuffled.slice(0, this.form.questionCount)
+        const { data } = await axios.post('/api/addRoom.php', payload)
 
-      const newRoom = {
-        id: Date.now(),
-        name: this.form.name.trim(),
-        code: Math.random().toString(36).substr(2,6).toUpperCase(),
-        hostID: session.userID || 0,
-        participants: [session.userID || 0],
-        gameMode: this.form.gameMode,
-        maxParticipants: this.form.maxParticipants,
-        questions: selected.map(q => ({
-          id: q.questionID ?? q.id ?? Date.now(),
-          text: q.question_text ?? q.text,
-          type: q.type,
-          options: q.options || [],
-          correctAnswer: q.correctAnswer,
-          explanation: q.explanation,
-          timeLimit: q.timeLimit,
-          difficulty: q.difficulty
-        })),
-        difficulty: this.form.difficulty,
-        createdAt: new Date().toISOString()
+        if (!data || !data.ok || !data.room) {
+          console.error('Unerwartete Antwort von addRoom.php', data)
+          alert('Raum konnte nicht erstellt werden.')
+          return
+        }
+
+        const newRoom = {
+          id: data.room.id,
+          name: data.room.name,
+          gameMode: data.room.playMode || data.room.playMode || data.room.play_mode || data.room.gameMode || 'cooperative',
+          difficulty: data.room.difficulty,
+          code: data.room.code,
+          hostID: data.room.hostID,
+          started: data.room.started,
+          quizID: data.room.quizID,
+          participants: [],          // wird von listRooms.php später befüllt
+          questions: [],             // wird von getRoom.php geladen
+          maxParticipants: data.room.maxParticipants ?? data.room.max_participants ?? this.form.maxParticipants
+        }
+
+        this.$emit('created', newRoom)
+        this.$emit('update:modelValue', false)
+        // Formular zurücksetzen
+        this.form.name = ''
+        this.form.gameMode = 'cooperative'
+        this.form.difficulty = 'easy'
+        this.form.maxParticipants = 8
+        this.form.quizID = 0
+
+      } catch (e) {
+        console.error('Fehler beim Erstellen des Raums', e?.response?.data || e)
+        alert('Fehler beim Erstellen des Raums.')
       }
-
-      // emit created — DashboardPage listens and will refresh rooms
-      this.$emit('created', newRoom)
-      this.$emit('update:modelValue', false)
     }
   }
 }
@@ -106,4 +167,3 @@ export default {
 <style scoped>
 .modal-inner { }
 </style>
-

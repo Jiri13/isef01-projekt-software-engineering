@@ -138,7 +138,7 @@ export default {
     data() {
         return {
             // create editable, normalized copy of imported questions as default/fallback
-            questions: Array.isArray(questionsFile) ? questionsFile.map(normalize) : [],
+            questions: "",
             showModal: false,
             selectedQuestion: null
         };

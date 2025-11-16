@@ -138,7 +138,7 @@ export default {
   computed: {
     myRooms() {
       const me = this.sessionStore?.userID
-      console.log("SessionID: " + this.sessionStore?.userID)
+      // console.log("SessionID: " + this.sessionStore?.userID)
       if (!me) return []
 
       return (this.rooms || []).filter(r => {
@@ -165,8 +165,6 @@ export default {
       }
     }
 
-    // normalize initial local rooms to include question objects where possible
-    this.normalizeLocalRooms()
     await this.fetchMyRooms()
   },
   watch: {
@@ -183,41 +181,6 @@ export default {
     }
   },
   methods: {
-    normalizeLocalRooms() {
-      try {
-        // Map question IDs in roomsFile to question objects from questionsFile
-        this.rooms = (this.rooms || []).map(r => {
-          const questions = Array.isArray(r.questions)
-            ? r.questions.map(qid => {
-                // qid might be numeric id; find in questionsFile
-                const q = (questionsFile || []).find(x => x.questionID == qid || x.id == qid)
-                if (q) {
-                  return {
-                    id: q.questionID ?? q.id,
-                    text: q.question_text ?? q.text,
-                    type: q.type,
-                    options: q.options || [],
-                    correctAnswer: q.correctAnswer,
-                    explanation: q.explanation,
-                    timeLimit: q.timeLimit,
-                    difficulty: q.difficulty
-                  }
-                }
-                return qid
-              }).filter(Boolean)
-            : []
-
-          return {
-            ...r,
-            participants: Array.isArray(r.participants) ? r.participants : [],
-            questions: questions,
-            maxParticipants: r.maxParticipants ?? 8
-          }
-        })
-      } catch (e) {
-        console.warn('normalizeLocalRooms failed', e)
-      }
-    },
     async fetchMyRooms() {
       try {
         this.loadingRooms = true

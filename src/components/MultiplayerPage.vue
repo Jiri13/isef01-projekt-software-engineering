@@ -11,6 +11,13 @@
           <h2>🏁 Quiz beendet</h2>
           <p>Dein Ergebnis: {{ score }} / {{ room.questions.length }}</p>
           <button class="btn btn-primary" @click="goBack">Zurück zum Dashboard</button>
+          <button
+              class="btn btn-secondary"
+              @click="manageQuestions"
+              style="padding:4px 10px;font-size:12px;"
+          >
+            🔧 Fragen verwalten
+          </button>
         </div>
       </div>
 
@@ -63,10 +70,13 @@
 <script>
 import axios from 'axios'
 import router from '@/router'
+import { useSessionStore } from '@/stores/session'
 
 export default {
   data() {
+    const sessionStore = useSessionStore()
     return {
+      sessionStore,
       room: null,
       loading: false,
       error: null,
@@ -84,12 +94,39 @@ export default {
     },
     canSubmit() {
       if (!this.currentQuestion) return false
-      if (this.currentQuestion.type === 'text_input') return this.textInputAnswer.trim().length > 0 && !this.reveal
+      if (this.currentQuestion.type === 'text_input') {
+        return this.textInputAnswer.trim().length > 0 && !this.reveal
+      }
       return this.selectedAnswer !== null && !this.reveal
     },
     feedbackClass() {
-      return this.reveal ? (this.lastAnswerCorrect ? 'alert alert-success' : 'alert alert-error') : ''
-    }
+      return this.reveal
+          ? (this.lastAnswerCorrect ? 'alert alert-success' : 'alert alert-error')
+          : ''
+    },
+    computed: {
+      currentQuestion() {
+        return this.room?.questions?.[this.currentQuestionIndex] ?? null
+      },
+      canSubmit() {
+        if (!this.currentQuestion) return false
+        if (this.currentQuestion.type === 'text_input') {
+          return this.textInputAnswer.trim().length > 0 && !this.reveal
+        }
+        return this.selectedAnswer !== null && !this.reveal
+      },
+      feedbackClass() {
+        return this.reveal
+            ? (this.lastAnswerCorrect ? 'alert alert-success' : 'alert alert-error')
+            : ''
+      },
+      isHost() {
+        if (!this.room) return false
+        const me   = Number(this.sessionStore?.userID)
+        const host = Number(this.room.hostID)
+        return !Number.isNaN(me) && !Number.isNaN(host) && me === host
+      }
+    },
   },
   mounted() {
     this.loadRoom()
@@ -99,80 +136,64 @@ export default {
       this.loading = true
       this.error = null
       const id = this.$route.params.id
+
       try {
-        // try API first
-        const res = await axios.get(`/api/getRoom.php`, { params: { roomID: id } }).catch(() => null)
-        if (res && res.data) {
-          this.room = res.data
-        } else if (history.state && history.state.room) {
-          this.room = history.state.room
-        } else {
-          // try localStorage fallback
-          const cached = localStorage.getItem(`room_${id}`)
-          if (cached) this.room = JSON.parse(cached)
+        let room = null
+
+        // 1) API: getRoom.php (mit echten Fragen)
+        try {
+          const res = await axios.get('/api/getRoom.php', { params: { roomID: id } })
+          if (res && res.data && !res.data.error) {
+            room = res.data
+          }
+        } catch (e) {
+          console.warn('getRoom.php failed, trying fallbacks', e?.response?.status, e?.response?.data)
         }
 
-        if (!this.room) {
-          // try to fall back to the global rooms list saved by Dashboard (quiz_rooms) which may contain the room
+        // 2) Fallback: history.state
+        if (!room && history.state && history.state.room) {
+          room = history.state.room
+        }
+
+        // 3) Fallback: room_X aus localStorage
+        if (!room) {
+          const cached = localStorage.getItem(`room_${id}`)
+          if (cached) {
+            try {
+              room = JSON.parse(cached)
+            } catch (e) {
+              console.warn('Failed to parse room cache', e)
+            }
+          }
+        }
+
+        // 4) Fallback: quiz_rooms
+        if (!room) {
           const allRoomsRaw = localStorage.getItem('quiz_rooms')
           if (allRoomsRaw) {
             try {
               const parsed = JSON.parse(allRoomsRaw)
               const found = (parsed || []).find(r => String(r.id) === String(id))
-              if (found) this.room = found
+              if (found) room = found
             } catch (e) {
               console.warn('Failed to parse quiz_rooms', e)
             }
           }
         }
 
-        if (!this.room) {
+        if (!room) {
           this.error = 'Raum nicht gefunden.'
-        } else {
-          // ensure questions array exists and contains actual question objects
-          if (!Array.isArray(this.room.questions)) this.room.questions = []
-
-          const hasNulls = this.room.questions.some(q => q === null || typeof q === 'number' || typeof q === 'string')
-
-          // If questions are missing or are only placeholders, fill them from local questions file
-          if (!this.room.questions.length || hasNulls) {
-            // filter questions by room.difficulty (if set), otherwise use all
-            const diff = (this.room.difficulty || '').toString().trim().toLowerCase()
-            let pool = Array.isArray(questionsFile) ? questionsFile.map(q => ({
-              id: q.questionID ?? q.id,
-              text: q.question_text ?? q.text,
-              type: q.type ?? 'multiple_choice',
-              options: q.options || [],
-              correctAnswer: q.correctAnswer,
-              correctAnswerText: typeof q.correctAnswer === 'string' ? q.correctAnswer : (q.correctAnswerText || ''),
-              explanation: q.explanation,
-              timeLimit: q.timeLimit ?? 30,
-              difficulty: q.difficulty ?? 'easy'
-            })) : []
-
-            if (diff) {
-              pool = pool.filter(q => (q.difficulty || '').toLowerCase() === diff)
-            }
-
-            // shuffle pool and take as many as room.questionsCount or room.questions.length or default 10
-            const shuffle = arr => {
-              const a = arr.slice();
-              for (let i = a.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [a[i], a[j]] = [a[j], a[i]]
-              }
-              return a
-            }
-
-            // determine how many questions to take: prefer explicit questionsCount, else existing length, else fall back to 10 or pool length
-            let count = 10
-            if (typeof this.room.questionsCount === 'number' && this.room.questionsCount > 0) count = this.room.questionsCount
-            else if (Array.isArray(this.room.questions) && this.room.questions.length > 0) count = this.room.questions.length
-            count = Math.min(count, pool.length)
-            const selected = shuffle(pool).slice(0, count)
-            this.room.questions = selected
-          }
+          this.room = null
+          return
         }
+
+        if (!Array.isArray(room.participants)) room.participants = []
+        if (!Array.isArray(room.questions)) room.questions = []
+
+        this.room = room
+        console.log('Room hostID:', this.room.hostID, 'Session userID:', this.sessionStore.userID)
+
+
       } catch (e) {
         console.error(e)
         this.error = 'Fehler beim Laden des Raums.'
@@ -180,6 +201,19 @@ export default {
         this.loading = false
       }
     },
+
+    // Button „Fragen verwalten“
+    manageQuestions() {
+      if (!this.room?.quizID) {
+        alert('Diesem Raum ist kein Quiz zugeordnet.')
+        return
+      }
+      this.$router.push({
+        path: '/questions',
+        query: { quizID: this.room.quizID }
+      })
+    },
+
     selectAnswer(i) {
       if (this.reveal) return
       this.selectedAnswer = i
@@ -187,6 +221,7 @@ export default {
     submitAnswer() {
       if (!this.currentQuestion) return
       let correct = false
+
       if (this.currentQuestion.type === 'text_input') {
         const ua = this.textInputAnswer.trim().toLowerCase()
         const ca = (this.currentQuestion.correctAnswerText || '').toLowerCase()
@@ -198,11 +233,15 @@ export default {
       if (correct) this.score++
       this.reveal = true
       this.lastAnswerCorrect = correct
-      this.feedback = correct ? '✅ Richtig!' : `❌ Falsch. Richtige Antwort: ${this.getCorrectLabel()}`
+      this.feedback = correct
+          ? '✅ Richtig!'
+          : `❌ Falsch. Richtige Antwort: ${this.getCorrectLabel()}`
     },
     getCorrectLabel() {
       if (!this.currentQuestion) return ''
-      if (this.currentQuestion.type === 'text_input') return this.currentQuestion.correctAnswerText
+      if (this.currentQuestion.type === 'text_input') {
+        return this.currentQuestion.correctAnswerText
+      }
       return this.currentQuestion.options?.[this.currentQuestion.correctAnswer] ?? ''
     },
     nextQuestion() {
@@ -211,12 +250,14 @@ export default {
       this.textInputAnswer = ''
       this.reveal = false
       this.feedback = ''
-      if (this.currentQuestionIndex >= (this.room?.questions?.length || 0)) {
-        // finished
-      }
     },
     getDifficultyText(d) {
-      switch(d){ case 'easy': return 'Leicht'; case 'medium': return 'Mittel'; case 'hard': return 'Schwer'; default: return d }
+      switch (d) {
+        case 'easy': return 'Leicht'
+        case 'medium': return 'Mittel'
+        case 'hard': return 'Schwer'
+        default: return d
+      }
     },
     goBack() {
       router.push('/dashboard')

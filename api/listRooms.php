@@ -1,13 +1,8 @@
 <?php
-// [WHY] Endpoint: Liefert alle Räume, in denen userID Host oder Teilnehmer ist, inkl. Metriken.
+// listRooms.php – überarbeitet für Many-to-Many Quiz <-> Question
 
 header('Content-Type: application/json');
-
 require __DIR__ . '/dbConnection.php';
-
-/**
- * Expect: GET /api/listRooms.php?userID=123
- */
 
 $userID = isset($_GET['userID']) ? (int)$_GET['userID'] : 0;
 if ($userID <= 0) {
@@ -15,102 +10,121 @@ if ($userID <= 0) {
     echo json_encode(['error' => 'userID required']);
     exit;
 }
-// [WARN] userID kommt aus Query-Param ohne Auth-Überprüfung (Session/JWT fehlt).
-// [ASSUME] Request ist bereits authentisiert oder nur für interne Nutzung bestimmt.
+
+/*
+    ERKLÄRUNG:
+    - questions_count: wird über quizquestion bestimmt
+    - avg_diff: Difficulty-Durchschnitt der Fragen im Quiz
+*/
 
 $sql = "
 SELECT
-  r.roomID                            AS id,
-  r.room_name                         AS name,
-  r.play_mode                         AS play_mode,
-  r.started                           AS started,
-  r.quizID                            AS quizID,
-  r.userID                            AS hostID,
-  r.code                              AS code,
-  r.max_participants	              AS max_participants,
-  COALESCE(rp.cnt, 0)                 AS participants_count,
-  COALESCE(qq.cnt, 0)                 AS questions_count,
-  COALESCE(qq.avg_diff, 0)            AS avg_diff
+  r.roomID                             AS id,
+  r.room_name                          AS name,
+  r.play_mode                          AS play_mode,
+  r.started                            AS started,
+  r.quizID                             AS quizID,
+  r.userID                             AS hostID,
+  r.code                               AS code,
+  r.max_participants	               AS max_participants,
+  r.difficulty                         AS room_difficulty,
+
+  -- Teilnehmer pro Raum
+  COALESCE(rp.cnt, 0)                  AS participants_count,
+
+  -- Fragen pro Quiz (über quizquestion)
+  COALESCE(qstats.questions_count, 0)  AS questions_count,
+  qstats.avg_diff                      AS avg_diff
+
 FROM Room r
+
 LEFT JOIN (
-  SELECT roomID, COUNT(*) AS cnt
-  FROM RoomParticipant
-  GROUP BY roomID
+    SELECT
+        roomID,
+        COUNT(*) AS cnt
+    FROM RoomParticipant
+    GROUP BY roomID
 ) rp ON rp.roomID = r.roomID
+
 LEFT JOIN (
-  SELECT
-    q.quizID,
-    COUNT(*) AS cnt,
-    AVG(CASE q.difficulty
-          WHEN 'Easy'   THEN 1
-          WHEN 'Medium' THEN 2
-          WHEN 'Hard'   THEN 3
-        END) AS avg_diff
-  FROM Question q
-  GROUP BY q.quizID
-) qq ON qq.quizID = r.quizID
+    SELECT
+        qq.quizID,
+        COUNT(*) AS questions_count,
+        AVG(
+            CASE LOWER(q.difficulty)
+                WHEN 'easy'   THEN 1
+                WHEN 'medium' THEN 2
+                WHEN 'hard'   THEN 3
+            END
+        ) AS avg_diff
+    FROM quizquestion qq
+    JOIN question q ON q.questionID = qq.questionID
+    GROUP BY qq.quizID
+) qstats ON qstats.quizID = r.quizID
+
 WHERE
-  r.userID = :uid
-  OR r.roomID IN (SELECT roomID FROM RoomParticipant WHERE userID = :uid)
+    r.userID = :uid
+    OR r.roomID IN (SELECT roomID FROM RoomParticipant WHERE userID = :uid)
+
 ORDER BY r.started DESC
 ";
-// [HOW] Aggregiert Teilnehmer/Fragen via vorgelagerten Gruppierungen und joint diese pro Raum.
-// [ASSUME] Question.difficulty ist exakt 'Easy|Medium|Hard' (Großschreibung wie im CASE).
-// [PERF] COUNT/AVG über Subselects vermeidet N+1-Queries; Indexe auf RoomParticipant(roomID), Question(quizID) empfohlen.
-// [WARN] participants_count zählt nur RoomParticipant, nicht zwingend den Host (falls Host nicht als Participant erfasst).
 
 $stmt = $pdo->prepare($sql);
 $stmt->execute([':uid' => $userID]);
-$rows = $stmt->fetchAll();
+$rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// [HOW] Teilnehmer je Raum (als Liste von userIDs) nachladen
+/* Difficulty-Mapping */
+function mapDifficulty($avg) {
+    if ($avg <= 1.5) return 'easy';
+    if ($avg <= 2.5) return 'medium';
+    return 'hard';
+}
+
+/* Teilnehmer pro Raum laden */
 $roomIds = array_column($rows, 'id');
 $participants = [];
+
 if (!empty($roomIds)) {
     $placeholders = implode(',', array_fill(0, count($roomIds), '?'));
     $sqlP = "SELECT roomID, userID FROM RoomParticipant WHERE roomID IN ($placeholders)";
     $stP = $pdo->prepare($sqlP);
     $stP->execute($roomIds);
+
     foreach ($stP->fetchAll() as $p) {
         $rid = (int)$p['roomID'];
         $uid = (int)$p['userID'];
-        if (!isset($participants[$rid])) $participants[$rid] = [];
         $participants[$rid][] = $uid;
     }
-    // [HOW] Dynamische IN-Klausel sicher über Platzhalter; schützt vor SQL-Injection.
-    // [PERF] Sehr große IN-Listen können langsam sein; Alternative: JOIN mit IN (...) oder batched Laden.
 }
-
-/* Difficulty-Heuristik: 1..3 -> easy/medium/hard */
-function mapDifficulty($avg)
-{
-    if ($avg <= 1.5) return 'easy';
-    if ($avg <= 2.5) return 'medium';
-    return 'hard';
-}
-// [ASSUME] Schwellen 1.5/2.5 linear aus Mapping 1..3; bei fehlenden Fragen ist avg_diff = 0 → später 'medium'.
 
 $result = array_map(function($r) use ($participants) {
-    $id = (int)$r['id'];
-    $avg = (float)$r['avg_diff'];
+
+    $avg            = $r['avg_diff'] !== null ? (float)$r['avg_diff'] : null;
+    $questionsCount = (int)$r['questions_count'];
+    $roomDiff       = strtolower($r['room_difficulty'] ?? 'medium');
+
+    // Beide Welten:
+    // Falls es Fragen gibt -> Difficulty nach Fragen bestimmen
+    // Falls keine -> Difficulty direkt aus Room-Settings
+    $difficulty = ($questionsCount > 0 && $avg !== null)
+        ? mapDifficulty($avg)
+        : $roomDiff;
 
     return [
-        'id'               => $id,
+        'id'               => (int)$r['id'],
         'name'             => $r['name'],
-        'gameMode'         => (strtolower($r['play_mode']) === 'cooperative') ? 'cooperative' : 'competitive', // [HOW] API normalisiert auf lowercase
-        'difficulty'       => $avg > 0 ? mapDifficulty($avg) : 'medium', // [ASSUME] Kein avg ⇒ neutrale Default-Schwierigkeit
+        'gameMode'         => strtolower($r['play_mode']) === 'cooperative' ? 'cooperative' : 'competitive',
+        'difficulty'       => $difficulty,
         'code'             => $r['code'],
         'hostID'           => (int)$r['hostID'],
         'started'          => $r['started'],
-        'quizID'           => (int)$r['quizID'],              // [WARN] NULL wird zu 0 coercet; ggf. besser null durchreichen.
-        'participants'     => $participants[$id] ?? [],       // [ASSUME] Reihenfolge der IDs ist unerheblich
+        'quizID'           => (int)$r['quizID'],
+        'participants'     => $participants[(int)$r['id']] ?? [],
         'participantsCount'=> (int)$r['participants_count'],
-        'maxParticipants'  => $r['max_participants'],          // [ASSUME] Typ vom Treiber (String/Int) ist für Client tolerierbar
-        'questions'        => array_fill(0, (int)$r['questions_count'], null), // [WHY] Nur Anzahl signalisieren, Inhalte separat laden
-        'questionsCount'   => (int)$r['questions_count'],
+        'maxParticipants'  => (int)$r['max_participants'],
+        'questions'        => array_fill(0, $questionsCount, null),
+        'questionsCount'   => $questionsCount
     ];
 }, $rows);
 
 echo json_encode($result);
-// [IO] Liefert Array ohne Wrapper/ok-Flag; Client muss leeres Array korrekt interpretieren.
-// [PERF] Für viele Räume kann die participants-Nachladung groß werden; Pagination/Limit im Hauptquery erwägen. [TODO]
