@@ -9,7 +9,7 @@
 
         <div v-if="questions.length === 0" class="card" style="text-align: center; padding: 24px;">
             <h3>📝 Noch keine Fragen gefunden</h3>
-            <p style="color: #666;">Erstelle Fragen unter <code>src/files/questions.json</code> oder lade welche hoch.</p>
+            <p style="color: #666;">Erstelle Fragen oder lade welche hoch.</p>
         </div>
 
         <div v-else>
@@ -112,7 +112,6 @@
 
 <script>
 import DashboardNavbar from './DashboardNavbar.vue';
-import questionsFile from '@/files/questions.json';
 import axios from 'axios';
 
 function normalize(q) {

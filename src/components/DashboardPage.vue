@@ -113,8 +113,6 @@ import SingleplayerDifficultyModal from './SingleplayerDifficultyModal.vue'
 import CreateQuizRoomModal from './CreateQuizRoomModal.vue'
 import users from '../files/users.json'   // <DATENBANK>
 import axios from 'axios'
-import roomsFile from '@/files/rooms.json'
-import questionsFile from '@/files/questions.json'
 
 export default {
   components: {
@@ -128,8 +126,7 @@ export default {
     return {
       sessionStore,
       users,
-      // initialize rooms from local rooms.json (will be normalized in mounted/fetch)
-      rooms: Array.isArray(roomsFile) ? roomsFile.map(r => ({ ...r })) : [],
+      rooms: '',
       isShowingSinglePlayerModal: false,
       isShowingCreateQuizRoomModal: false,
       joinCode: '',
@@ -238,7 +235,6 @@ export default {
         }))
       } catch (e) {
         console.error(e)
-        // If we already have rooms (from localStorage or rooms.json), don't surface the error to the user
         if (!this.rooms || this.rooms.length === 0) {
           this.roomsError = 'Konnte Räume nicht laden.'
         } else {

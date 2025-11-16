@@ -38,7 +38,6 @@
 </template>
 
 <script>
-import questionsFile from '@/files/questions.json'
 import { useSessionStore } from '@/stores/session'
 
 export default {
@@ -70,7 +69,6 @@ export default {
 
       const session = useSessionStore();
 
-      // select questions from local questions.json matching difficulty
       const candidates = (questionsFile || []).filter(q => (q.difficulty || '').toLowerCase() === (this.form.difficulty || 'easy'))
       const shuffled = [...candidates].sort(() => Math.random() - 0.5)
       const selected = shuffled.slice(0, this.form.questionCount)

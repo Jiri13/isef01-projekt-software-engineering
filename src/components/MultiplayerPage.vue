@@ -63,7 +63,6 @@
 <script>
 import axios from 'axios'
 import router from '@/router'
-import questionsFile from '@/files/questions.json'
 
 export default {
   data() {
