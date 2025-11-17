@@ -17,6 +17,7 @@
       <h1>📊 Wirtschaftsinformatik Quiz</h1>
       <div>
         <button class="btn btn-primary" @click.prevent="showQuestionPage()">📝 Fragen</button>
+        <button class="btn btn-primary" @click.prevent="showQuizManagementPage()">🗂️ Quiz verwalten</button>
         <button class="btn btn-primary" @click.prevent="showSinglePlayerDifficultyModal()">🎮 Einzelspieler</button>
         <button class="btn btn-primary" @click.prevent="showCreateQuizRoomModal()">➕ Neuen Raum erstellen</button>
       </div>
@@ -227,6 +228,9 @@ export default {
     },
     showQuestionPage() {
       router.push('/questions')
+    },
+    showQuizManagementPage() {
+      router.push('/quizmanagement')
     },
     getUserNameFromHostID(hostID) {
       const foundUser = (this.users || []).find(user => user.userID === hostID)
