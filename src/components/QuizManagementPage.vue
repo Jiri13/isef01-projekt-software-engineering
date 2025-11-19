@@ -5,8 +5,8 @@
         <div v-if="isShowingCreateQuizModal" class="modal">
             <create-quiz-modal v-model="isShowingCreateQuizModal"/>
         </div>
-        <div v-if="isShowingEditQuizModal" class="modal">
-            <edit-quiz-modal v-model="isShowingEditQuizModal" :quizID="selectedQuizID" :quizzes="quizzes"/>
+        <div v-if="isShowingEditQuizModal && this.selectedQuizQuestions != []" class="modal">
+            <edit-quiz-modal v-model="isShowingEditQuizModal" :quizID="selectedQuizID" :quizzes="quizzes" :questions="selectedQuizQuestions"/>
         </div>
     </Teleport>
 
@@ -57,6 +57,8 @@ import { useSessionStore } from '@/stores/session'
 import { useSingleplayerStore } from '@/stores/singleplayer'
 import router from '@/router/index'
 import axios from 'axios'
+import questions from '../files/questions.json'   // <DATENBANK>
+import quizzes from '../files/quizzes.json' 
 
 export default {
     components: {
@@ -67,44 +69,55 @@ export default {
 
     data() {
         const sessionStore = useSessionStore()
-        const singleplayerStore = useSingleplayerStore()
         return {
             sessionStore,
-            singleplayerStore,
-            quizzes: [],
-            questions: [],
+            quizzes,
+            questions,
             selectedQuizID: null,
             selectedQuizTitle: '',
+            selectedQuizQuestions: [],
             isShowingCreateQuizModal: false,
             isShowingEditQuizModal: false,
             loading: false,
             error: null
         }
     },
-    async mounted() {
-    try {
-      this.loading = true
-      const { data } = await axios.get('/api/getQuizzes.php', {
-        params: { userID: this.sessionStore.userID }
-      })
-      this.quizzes = Array.isArray(data) ? data : []
-    } catch (e) {
-      this.error = e?.response?.data?.error || 'Konnte Quizzes nicht laden.'
-      console.error(e)
-    } finally {
-      this.loading = false
-    }
-  },
+    mounted(){
+        console.log('Questions loaded:', this.questions);
+        console.log('Quizzes loaded:', this.quizzes)
+    },
+//     async mounted() {
+//     try {
+//       this.loading = true
+//       const { data } = await axios.get('/api/getQuizzes.php', {
+//         params: { userID: this.sessionStore.userID }
+//       })
+//       this.quizzes = Array.isArray(data) ? data : []
+//     } catch (e) {
+//       this.error = e?.response?.data?.error || 'Konnte Quizzes nicht laden.'
+//       console.error(e)
+//     } finally {
+//       this.loading = false
+//     }
+//   },
+
   methods:{
     showCreateQuizModal(){
         this.isShowingCreateQuizModal = true;
     },
     editQuiz(quizID){
+        this.selectedQuizQuestions = [];
         this.selectedQuizID = quizID
-        console.log(quizID)
-        console.log(typeof quizID)
-        console.log(typeof quizzes)
+        // for each Question where Question.QuizID = selectedQuizID, put in selectedQUizQuestions
+        questions.forEach(question => {
+            if (question.quizID == quizID){
+                this.selectedQuizQuestions.push(question);
+            }
+            
+        });
+        //feed into child
         this.isShowingEditQuizModal = true;
+        console.log(this.quizzes[quizID])
     },
     deleteQuiz(quizID) {
         if (confirm('Möchtest du dieses Quiz wirklich löschen?')) {
