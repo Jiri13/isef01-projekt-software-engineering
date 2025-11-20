@@ -4,6 +4,7 @@
     <div class="container" style="margin-top: 24px;">
         <!-- Neuer Button zum Erstellen einer Frage -->
     <div style="text-align: right; margin-bottom: 12px;">
+    <button class="btn btn-primary" @click.prevent="showQuizManagementPage()">🗂️ Quizverwaltung</button>
     <button class="btn btn-primary" @click="openNewQuestion">➕ Neue Frage hinzufügen</button>
     </div>
 
@@ -113,6 +114,7 @@
 <script>
 import DashboardNavbar from './DashboardNavbar.vue';
 import axios from 'axios';
+import router from '@/router/index'
 
 function normalize(q) {
     // Map incoming JSON shape to the local shape used by the component
@@ -383,7 +385,10 @@ export default {
         },
         getDifficultyClass(d) {
             return `difficulty-${(d || 'easy').toLowerCase()}`;
-        }
+        },
+        showQuizManagementPage() {
+            router.push('/quizmanagement')
+        },
     }
 };
 </script>

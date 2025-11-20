@@ -1,23 +1,25 @@
 <template>
     <DashboardNavbar />
-
     <Teleport to="body">
         <div v-if="isShowingCreateQuizModal" class="modal">
-            <create-quiz-modal v-model="isShowingCreateQuizModal"/>
+            <create-quiz-modal v-model="isShowingCreateQuizModal" />
         </div>
         <div v-if="isShowingEditQuizModal && this.selectedQuizQuestions != []" class="modal">
-            <edit-quiz-modal v-model="isShowingEditQuizModal" :quizID="selectedQuizID" :quizzes="quizzes" :questions="selectedQuizQuestions"/>
+            <edit-quiz-modal v-model="isShowingEditQuizModal" :quizID="selectedQuizID" :quizzes="quizzes"
+                :questions="selectedQuizQuestions" />
         </div>
     </Teleport>
 
-
-    <div div class="container" style="margin-top: 24px;">
-        <button class="btn btn-primary" style="margin-left: 50px" @click.prevent="showCreateQuizModal()">➕ Neues Quiz
-            erstellen</button>
+    <div class="container" style="margin-top: 24px;">
+        <div style="text-align: right; margin-bottom: 12px;">
+            <button class="btn btn-primary" @click.prevent="showQuestionPage()">📝 Fragenverwaltung</button>
+            <button class="btn btn-primary" @click.prevent="showCreateQuizModal()">➕ Neues
+                Quiz
+                erstellen</button>
+        </div>
         <h2 style="margin-bottom: 24px; margin-left: 50px">Gespeicherte Quiz:</h2>
         <div style=" overflow-y: auto; margin-bottom: 24px; margin-left: 50px; margin-right: 50px;">
             <div v-for="quiz in quizzes" :key="quiz.quizID" class="card"
-                :class="{ selected: quiz.quizID === selectedQuizID && mode === 'quiz' }"
                 style="border: 2px solid #007bff; margin-bottom: 16px; position: relative;">
                 <div style="cursor: pointer;" @click.prevent="editQuiz(quiz.quizID)">
                     <div
@@ -30,12 +32,12 @@
                             </h3>
                             <p>{{ quiz.quiz_description }}</p>
                             <p>Studiengang: {{ quiz.category }}</p>
-                            <button v-if="quiz.userID == sessionStore.userID" @click.prevent="deleteQuiz(quiz.quizID)"
+                            <button v-if="quiz.userID == sessionStore.userID" @click.stop="deleteQuiz(quiz.quizID)"
                                 class="btn btn-danger"
                                 style="position:absolute;bottom:12px;right:12px;padding:8px 12px;font-size:14px;">
                                 🗑️ Quiz löschen
                             </button>
-                            <button v-else @click.prevent="removeQuiz(quiz.quizID)" class="btn btn-danger"
+                            <button v-else @click.stop="removeQuiz(quiz.quizID)" class="btn btn-danger"
                                 style="position:absolute;bottom:12px;right:12px;padding:8px 12px;font-size:14px;">
                                 ❌ Quiz entfernen
                             </button>
@@ -45,7 +47,6 @@
             </div>
         </div>
     </div>
-
 </template>
 
 
@@ -58,11 +59,11 @@ import { useSingleplayerStore } from '@/stores/singleplayer'
 import router from '@/router/index'
 import axios from 'axios'
 import questions from '../files/questions.json'   // <DATENBANK>
-import quizzes from '../files/quizzes.json' 
+import quizzes from '../files/quizzes.json'
 
 export default {
     components: {
-        DashboardNavbar, 
+        DashboardNavbar,
         CreateQuizModal,
         EditQuizModal
     },
@@ -82,60 +83,51 @@ export default {
             error: null
         }
     },
-    mounted(){
-        console.log('Questions loaded:', this.questions);
-        console.log('Quizzes loaded:', this.quizzes)
-    },
-//     async mounted() {
-//     try {
-//       this.loading = true
-//       const { data } = await axios.get('/api/getQuizzes.php', {
-//         params: { userID: this.sessionStore.userID }
-//       })
-//       this.quizzes = Array.isArray(data) ? data : []
-//     } catch (e) {
-//       this.error = e?.response?.data?.error || 'Konnte Quizzes nicht laden.'
-//       console.error(e)
-//     } finally {
-//       this.loading = false
-//     }
-//   },
+    methods: {
+        showCreateQuizModal() {
+            this.isShowingCreateQuizModal = true;
+        },
+        editQuiz(quizID) {
+            this.selectedQuizQuestions = [];
+            this.selectedQuizID = quizID
+            questions.forEach(question => {
+                if (question.quizID == quizID) {
+                    this.selectedQuizQuestions.push(question);
+                }
 
-  methods:{
-    showCreateQuizModal(){
-        this.isShowingCreateQuizModal = true;
-    },
-    editQuiz(quizID){
-        this.selectedQuizQuestions = [];
-        this.selectedQuizID = quizID
-        // for each Question where Question.QuizID = selectedQuizID, put in selectedQUizQuestions
-        questions.forEach(question => {
-            if (question.quizID == quizID){
-                this.selectedQuizQuestions.push(question);
+            });
+            this.isShowingEditQuizModal = true;
+        },
+        deleteQuiz(quizID) {
+            if (confirm('Möchtest du dieses Quiz wirklich löschen?')) {
+                console.log("Quiz gelöscht");
+                console.log(quizID);
             }
-            
-        });
-        //feed into child
-        this.isShowingEditQuizModal = true;
-        console.log(this.quizzes[quizID])
-    },
-    deleteQuiz(quizID) {
-        if (confirm('Möchtest du dieses Quiz wirklich löschen?')) {
-            console.log("Quiz gelöscht");
-        }
-    },
-    removeQuiz(quizID) {
-        if (confirm('Möchtest du dieses Quiz aus deiner Liste entfernen?')) {
-            console.log("Quiz gelöscht");
+        },
+        removeQuiz(quizID) {
+            if (confirm('Möchtest du dieses Quiz aus deiner Liste entfernen?')) {
+                console.log("Quiz entfernt");
+                console.log(quizID);
+            }
+        },
+        showQuestionPage() {
+            router.push('/questions')
         }
     }
-  }
 }
 </script>
 
 <style scoped>
-.modal{
-  position:fixed;top:0;left:0;width:100%;height:100%;
-  background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:1000;
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
 }
 </style>

@@ -16,8 +16,8 @@
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:32px;flex-wrap:wrap;gap:16px;">
       <h1>📊 Wirtschaftsinformatik Quiz</h1>
       <div>
-        <button class="btn btn-primary" @click.prevent="showQuestionPage()">📝 Fragen</button>
-        <button class="btn btn-primary" @click.prevent="showQuizManagementPage()">🗂️ Quiz verwalten</button>
+        <button class="btn btn-primary" @click.prevent="showQuestionPage()">📝 Fragenverwaltung</button>
+        <button class="btn btn-primary" @click.prevent="showQuizManagementPage()">🗂️ Quizverwaltung</button>
         <button class="btn btn-primary" @click.prevent="showSinglePlayerDifficultyModal()">🎮 Einzelspieler</button>
         <button class="btn btn-primary" @click.prevent="showCreateQuizRoomModal()">➕ Neuen Raum erstellen</button>
       </div>
