@@ -1,6 +1,15 @@
 <template>
   <div>
-    <nav class="navbar"><div class="container"><div class="navbar-content"><div class="navbar-brand">🎯 Multiplayer Quiz</div></div></div></nav>
+    <nav class="navbar">
+      <div class="container">
+        <div class="navbar-content">
+          <div class="navbar-brand">🎯 Multiplayer Quiz</div>
+            <div class="nav-links">
+              <button class="btn btn-secondary" @click.prevent="goBack()">Zurück zum Dashboard</button>
+            </div>
+          </div>
+      </div>
+    </nav>
 
     <div class="container">
       <div v-if="loading" class="card">⏳ Raum wird geladen…</div>
