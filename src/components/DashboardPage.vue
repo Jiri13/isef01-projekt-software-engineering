@@ -35,7 +35,13 @@
 
       <div class="card">
         <h3 style="margin-bottom:16px;">📈 Deine Statistiken</h3>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;text-align:center;">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;text-align:center;">
+          <div>
+            <div style="font-size:24px;font-weight:700;color:#003678;">
+              {{ getUserStatsFromID(sessionStore.userID).gamesPlayed }}
+            </div>
+            <div style="color:#666;">Gespielte Spiele</div>
+          </div>
           <div>
             <div style="font-size:24px;font-weight:700;color:#28a745;">
               {{ getUserStatsFromID(sessionStore.userID).correctAnswers }}
@@ -132,14 +138,19 @@ export default {
       isShowingCreateQuizRoomModal: false,
       joinCode: '',
       loadingRooms: false,
-      roomsError: null
+      roomsError: null,
+      userStats: {
+        correctAnswers: 0,
+        wrongAnswers: 0,
+        totalAnswers: 0,
+        gamesPlayed: 0
+      }
     }
   },
 
   computed: {
     myRooms() {
       const me = this.sessionStore?.userID
-      // console.log("SessionID: " + this.sessionStore?.userID)
       if (!me) return []
 
       return (this.rooms || []).filter(r => {
@@ -167,6 +178,7 @@ export default {
     }
 
     await this.fetchMyRooms()
+    await this.fetchUserStats()
   },
   watch: {
     // persist rooms to localStorage whenever they change
@@ -208,6 +220,26 @@ export default {
         this.loadingRooms = false
       }
     },
+    async fetchUserStats() {
+      try {
+        const uid = this.sessionStore.userID
+        if (!uid) return
+
+        const { data } = await axios.get('/api/getUserStats.php', {
+          params: { userID: uid }
+        })
+
+        this.userStats = {
+          correctAnswers: data?.correctAnswers ?? 0,
+          wrongAnswers:  data?.wrongAnswers  ?? 0,
+          totalAnswers:  data?.totalAnswers  ?? 0,
+          gamesPlayed:   data?.gamesPlayed   ?? 0
+        }
+      } catch (e) {
+        console.error('Fehler beim Laden der User-Statistiken', e)
+        this.userStats = { correctAnswers: 0, wrongAnswers: 0, totalAnswers: 0, gamesPlayed: 0 }
+      }
+    },
     async onRoomCreated(room) {
       // If backend exists, we refresh; otherwise, insert room locally so it appears immediately
       if (room) {
@@ -237,8 +269,13 @@ export default {
       return foundUser ? foundUser.first_name : `User #${hostID}`
     },
     getUserStatsFromID(ID) {
-      const foundUser = (this.users || []).find(user => user.userID === ID)
-      return foundUser?.stats || { correctAnswers: 0, wrongAnswers: 0 }
+      if (ID === this.sessionStore.userID && this.userStats) {
+        return {
+          correctAnswers: this.userStats.correctAnswers ?? 0,
+          wrongAnswers:  this.userStats.wrongAnswers  ?? 0,
+          gamesPlayed: this.userStats.gamesPlayed ?? 0
+        }
+      }
     },
     getDifficultyText(difficulty) {
       switch (difficulty) {

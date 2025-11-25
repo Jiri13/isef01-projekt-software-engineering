@@ -21,8 +21,8 @@ try {
             q.category,
             q.created_at,
             CONCAT(u.first_name, ' ', u.last_name) AS creatorName
-        FROM Quiz q
-        LEFT JOIN Users u ON q.userID = u.userID
+        FROM quiz q
+        LEFT JOIN users u ON q.userID = u.userID
         ORDER BY q.created_at DESC
     ";
 

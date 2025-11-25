@@ -28,7 +28,7 @@ try {
             q.difficulty,
             q.explanation,
             q.time_limit AS timeLimit
-        FROM Question q
+        FROM question q
         WHERE q.difficulty = :diff
         ORDER BY RAND()
         LIMIT :lim
@@ -53,7 +53,7 @@ try {
             qo.optionID AS optionId,
             qo.option_text AS optionText,
             qo.is_correct AS isCorrect
-        FROM Question_Option qo
+        FROM question_option qo
         WHERE qo.questionID IN ($in)
     ");
     $optStmt->execute($ids);

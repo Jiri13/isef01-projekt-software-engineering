@@ -85,10 +85,14 @@ export default {
       textInputAnswer: '',
       reveal: false,
       score: 0,
-      feedback: ''
+      feedback: '',
+      statsSent: false
     }
   },
   computed: {
+    quizFinished () {
+      return this.room && this.currentQuestionIndex >= this.room.questions.length
+    },
     currentQuestion() {
       return this.room?.questions?.[this.currentQuestionIndex] ?? null
     },
@@ -103,30 +107,14 @@ export default {
       return this.reveal
           ? (this.lastAnswerCorrect ? 'alert alert-success' : 'alert alert-error')
           : ''
-    },
-    computed: {
-      currentQuestion() {
-        return this.room?.questions?.[this.currentQuestionIndex] ?? null
-      },
-      canSubmit() {
-        if (!this.currentQuestion) return false
-        if (this.currentQuestion.type === 'text_input') {
-          return this.textInputAnswer.trim().length > 0 && !this.reveal
-        }
-        return this.selectedAnswer !== null && !this.reveal
-      },
-      feedbackClass() {
-        return this.reveal
-            ? (this.lastAnswerCorrect ? 'alert alert-success' : 'alert alert-error')
-            : ''
-      },
-      isHost() {
-        if (!this.room) return false
-        const me   = Number(this.sessionStore?.userID)
-        const host = Number(this.room.hostID)
-        return !Number.isNaN(me) && !Number.isNaN(host) && me === host
+    }
+  },
+  watch: {
+    quizFinished (val) {
+      if (val && !this.statsSent) {
+        this.sendStats();
       }
-    },
+    }
   },
   mounted() {
     this.loadRoom()
@@ -140,7 +128,6 @@ export default {
       try {
         let room = null
 
-        // 1) API: getRoom.php (mit echten Fragen)
         try {
           const res = await axios.get('/api/getRoom.php', { params: { roomID: id } })
           if (res && res.data && !res.data.error) {
@@ -150,12 +137,10 @@ export default {
           console.warn('getRoom.php failed, trying fallbacks', e?.response?.status, e?.response?.data)
         }
 
-        // 2) Fallback: history.state
         if (!room && history.state && history.state.room) {
           room = history.state.room
         }
 
-        // 3) Fallback: room_X aus localStorage
         if (!room) {
           const cached = localStorage.getItem(`room_${id}`)
           if (cached) {
@@ -167,7 +152,6 @@ export default {
           }
         }
 
-        // 4) Fallback: quiz_rooms
         if (!room) {
           const allRoomsRaw = localStorage.getItem('quiz_rooms')
           if (allRoomsRaw) {
@@ -201,8 +185,34 @@ export default {
         this.loading = false
       }
     },
+    async sendStats() {
+      const userID        = Number(this.sessionStore.userID);
+      const quizID        = Number(this.room.quizID);
+      const totalAnswers  = this.room.questions.length;
+      const correctAnswers = this.score;
 
-    // Button „Fragen verwalten“
+      console.log('Stats-Payload:', {
+        userID,
+        quizID,
+        totalAnswers,
+        correctAnswers,
+      });
+
+      try {
+        const res = await axios.post('/api/updateUserQuizStats.php', {
+          userID,
+          quizID,
+          totalAnswers,
+          correctAnswers,
+        });
+        console.log('API Response:', res.data);
+      } catch (err) {
+        console.error('Fehler beim Aktualisieren der Statistiken:', err);
+        if (err.response) {
+          console.log('Serverantwort:', err.response.data);
+        }
+      }
+    },
     manageQuestions() {
       if (!this.room?.quizID) {
         alert('Diesem Raum ist kein Quiz zugeordnet.')
@@ -213,7 +223,6 @@ export default {
         query: { quizID: this.room.quizID }
       })
     },
-
     selectAnswer(i) {
       if (this.reveal) return
       this.selectedAnswer = i

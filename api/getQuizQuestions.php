@@ -24,7 +24,7 @@ try {
             q.explanation,
             q.quizID,
             q.userID
-        FROM Question q
+        FROM question q
         WHERE q.quizID = :quizID
         ORDER BY q.created_at DESC
     ");
@@ -38,7 +38,7 @@ try {
                 qo.optionID AS optionId,
                 qo.option_text AS optionText,
                 qo.is_correct AS isCorrect
-            FROM Question_Option qo
+            FROM question_option qo
             WHERE qo.questionID = :id
         ");
         $optStmt->execute([':id' => $q['questionId']]);
