@@ -6,14 +6,16 @@
       <singleplayer-difficulty-modal v-model="isShowingSinglePlayerModal" />
     </div>
     <div v-if="isShowingCreateQuizRoomModal" class="modal">
-      <create-quiz-room-modal
-          v-model="isShowingCreateQuizRoomModal"
-          @created="onRoomCreated"/>
+      <create-quiz-room-modal v-model="isShowingCreateQuizRoomModal" @created="onRoomCreated" />
+    </div>
+    <div v-if="isShowingStatisticsModal" class="modal">
+      <statistics-modal v-model="isShowingStatisticsModal"/>
     </div>
   </Teleport>
 
   <div class="container">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:32px;flex-wrap:wrap;gap:16px;">
+    <div
+      style="display:flex;justify-content:space-between;align-items:center;margin-bottom:32px;flex-wrap:wrap;gap:16px;">
       <h1>📊 Wirtschaftsinformatik Quiz</h1>
       <div>
         <button class="btn btn-primary" @click.prevent="showQuestionPage()">📝 Fragenverwaltung</button>
@@ -27,26 +29,27 @@
       <div class="card">
         <h3 style="margin-bottom:16px;">🔗 Raum beitreten</h3>
         <div style="display:flex;gap:12px;">
-          <input type="text" id="joinCode" v-model="joinCode" class="form-input" placeholder="Code eingeben" style="flex:1;">
+          <input type="text" id="joinCode" v-model="joinCode" class="form-input" placeholder="Code eingeben"
+            style="flex:1;">
           <button class="btn btn-primary" @click.prevent="joinRoomByCode()">Beitreten</button>
         </div>
         <div id="joinError" style="display:none;" class="alert alert-error"></div>
       </div>
 
-      <div class="card">
-        <h3 style="margin-bottom:16px;">📈 Deine Statistiken</h3>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;text-align:center;">
+      <div class="card" style="cursor:pointer;" @click.prevent="showStatisticsModal()"> 
+        <h3 style="margin-bottom:16px;">📈 Deine Statistik</h3>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; text-align:center;">
           <div>
-            <div style="font-size:24px;font-weight:700;color:#28a745;">
-              {{ getUserStatsFromID(sessionStore.userID).correctAnswers }}
+            <div style="font-size:24px;font-weight:700;color:#007bff;">
+              {{ getUserCorrectRatio().toFixed(2)  }} %
             </div>
             <div style="color:#666;">Richtige Antworten</div>
           </div>
           <div>
-            <div style="font-size:24px;font-weight:700;color:#dc3545;">
-              {{ getUserStatsFromID(sessionStore.userID).wrongAnswers }}
+            <div style="font-size:24px;font-weight:700;color:#007bff;">
+              {{ getRank() }}
             </div>
-            <div style="color:#666;">Falsche Antworten</div>
+            <div style="color:#666;">Rang</div>
           </div>
         </div>
       </div>
@@ -64,15 +67,18 @@
       </div>
 
       <!-- NUR diese Liste behalten -->
-      <div v-for="room in myRooms" :key="room.id" class="card" style="border:2px solid #007bff;margin-bottom:16px;position:relative;">
+      <div v-for="room in myRooms" :key="room.id" class="card"
+        style="border:2px solid #007bff;margin-bottom:16px;position:relative;">
         <div style="cursor:pointer;" @click.prevent="enterRoom(room.id)">
           <div style="display:flex;justify-content:space-between;margin-bottom:12px;align-items:flex-start;">
             <div>
               <h3>
                 {{ room.name }}
-                <small style="font-weight:normal;color:#666;">Ersteller: {{ getUserNameFromHostID(room.hostID) }}</small>
+                <small style="font-weight:normal;color:#666;">Ersteller: {{ getUserNameFromHostID(room.hostID)
+                  }}</small>
               </h3>
-              <span :class="`difficulty-${room.difficulty}`" style="padding:4px 8px;border-radius:12px;font-size:11px;margin-right:8px;">
+              <span :class="`difficulty-${room.difficulty}`"
+                style="padding:4px 8px;border-radius:12px;font-size:11px;margin-right:8px;">
                 {{ getDifficultyText(room.difficulty) }}
               </span>
             </div>
@@ -85,20 +91,12 @@
           <p><strong>❓ Fragen:</strong> {{ room.questions.length }}</p>
         </div>
 
-        <button
-            v-if="room.hostID === sessionStore.userID"
-            @click.prevent="deleteRoom(room.id)"
-            class="btn btn-danger"
-            style="position:absolute;bottom:12px;right:12px;padding:8px 12px;font-size:14px;"
-        >
+        <button v-if="room.hostID === sessionStore.userID" @click.prevent="deleteRoom(room.id)" class="btn btn-danger"
+          style="position:absolute;bottom:12px;right:12px;padding:8px 12px;font-size:14px;">
           🗑️ Raum löschen
         </button>
-        <button
-            v-if="room.hostID != sessionStore.userID"
-            @click.prevent="leaveRoom(room.id)"
-            class="btn btn-danger"
-            style="position:absolute;bottom:12px;right:12px;padding:8px 12px;font-size:14px;"
-        >
+        <button v-if="room.hostID != sessionStore.userID" @click.prevent="leaveRoom(room.id)" class="btn btn-danger"
+          style="position:absolute;bottom:12px;right:12px;padding:8px 12px;font-size:14px;">
           🚪Raum verlassen
         </button>
       </div>
@@ -112,6 +110,7 @@ import router from '@/router/index'
 import DashboardNavbar from './DashboardNavbar.vue'
 import SingleplayerDifficultyModal from './SingleplayerDifficultyModal.vue'
 import CreateQuizRoomModal from './CreateQuizRoomModal.vue'
+import StatisticsModal from './StatisticsModal.vue'
 import users from '../files/users.json'   // <DATENBANK>
 import axios from 'axios'
 
@@ -119,7 +118,8 @@ export default {
   components: {
     DashboardNavbar,
     SingleplayerDifficultyModal,
-    CreateQuizRoomModal
+    CreateQuizRoomModal,
+    StatisticsModal
   },
 
   data() {
@@ -130,6 +130,7 @@ export default {
       rooms: '',
       isShowingSinglePlayerModal: false,
       isShowingCreateQuizRoomModal: false,
+      isShowingStatisticsModal: false,
       joinCode: '',
       loadingRooms: false,
       roomsError: null
@@ -152,7 +153,8 @@ export default {
 
         return isHost || isMember
       })
-    }
+    },
+
   },
 
   async mounted() {
@@ -229,6 +231,9 @@ export default {
     showQuestionPage() {
       router.push('/questions')
     },
+    showStatisticsModal(){
+      this.isShowingStatisticsModal = true
+    },
     showQuizManagementPage() {
       router.push('/quizmanagement')
     },
@@ -240,6 +245,9 @@ export default {
       const foundUser = (this.users || []).find(user => user.userID === ID)
       return foundUser?.stats || { correctAnswers: 0, wrongAnswers: 0 }
     },
+    getUserCorrectRatio(){
+      return this.getUserStatsFromID(this.sessionStore.userID).correctAnswers / (this.getUserStatsFromID(this.sessionStore.userID).answeredQuestions || 1) * 100;
+    },
     getDifficultyText(difficulty) {
       switch (difficulty) {
         case 'easy': return 'Leicht'
@@ -247,6 +255,16 @@ export default {
         case 'hard': return 'Schwer'
         default: return difficulty
       }
+    },
+    getRank() {
+      const currentUserCorrectRatio = this.getUserCorrectRatio();
+      var scoreArray = []
+      users.forEach(user => {
+        scoreArray.push((user.stats.correctAnswers / user.stats.answeredQuestions) * 100)
+      });
+      const sortedScoreArray = scoreArray.sort((a, b) => b - a);
+      const rankInArray = sortedScoreArray.indexOf(currentUserCorrectRatio);
+      return rankInArray + 1;
     },
     enterRoom(roomID) {
       const room = (this.rooms || []).find(room => room.id === roomID)
