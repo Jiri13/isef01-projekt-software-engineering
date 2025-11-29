@@ -12,7 +12,7 @@
     },
     {
         "questionID": 2,
-        "question_text": "2. Was ist die Hauptstadt von Frankreich?",
+        "question_text": "2. Was ist die Hauptstadt von Italien?",
         "question_type": "multiple_choice",
         "explanation": "Tom Cruise ist Schauspieler; der gesuchte CEO ist .",
         "time_limit": 30,
@@ -23,7 +23,7 @@
     },
     {
         "questionID": 3,
-        "question_text": "3. Was ist die Hauptstadt von Frankreich?",
+        "question_text": "3. Was ist die Hauptstadt von Großbrittanien?",
         "question_type": "multiple_choice",
         "explanation": "Tom Cruise ist Schauspieler; der gesuchte CEO ist .",
         "time_limit": 30,

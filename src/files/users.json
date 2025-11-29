@@ -7,9 +7,17 @@
         "password_hash": "1",
         "role": "Admin",
         "stats": {
-            "correctAnswers": 0,
-            "wrongAnswers": 0,
-            "quiz_catalogue": [1]
+            "answeredQuestions": 10,
+            "correctAnswers": 5,
+            "wrongAnswers": 5,
+            "bestQuestion": 1,
+            "worstQuestion":3,
+            "completedQuizzes":2,
+            "quiz_catalogue": [1],
+            "roomScores": {
+                "1": 6,
+                "2": 8
+            }
         }
     },
     {
@@ -20,9 +28,17 @@
         "password_hash": "2",
         "role": "Admin",
         "stats": {
-            "correctAnswers": 0,
-            "wrongAnswers": 0,
-            "quiz_catalogue": [2]
+            "answeredQuestions": 10,
+            "correctAnswers": 8,
+            "wrongAnswers": 2,
+            "bestQuestion": 1,
+            "worstQuestion":3,
+            "completedQuizzes":2,
+            "quiz_catalogue": [2],
+            "roomScores": {
+                "1": 6,
+                "2": 8
+            }
         }
     },
     {
@@ -33,9 +49,17 @@
         "password_hash": "3",
         "role": "Admin",
         "stats": {
-            "correctAnswers": 0,
-            "wrongAnswers": 0,
-            "quiz_catalogue": [2]
+            "answeredQuestions": 10,
+            "correctAnswers": 7,
+            "wrongAnswers": 3,
+            "bestQuestion": 1,
+            "worstQuestion":3,
+            "completedQuizzes":2,
+            "quiz_catalogue": [2],
+            "roomScores": {
+                "1": 6,
+                "2": 8
+            }
         }
     },
     {
@@ -46,9 +70,17 @@
         "password_hash": "4",
         "role": "Admin",
         "stats": {
-            "correctAnswers": 0,
-            "wrongAnswers": 0,
-            "quiz_catalogue": [1,2,3,4,5]
+            "answeredQuestions": 10,
+            "correctAnswers": 6,
+            "wrongAnswers": 4,
+            "bestQuestion": 1,
+            "worstQuestion":3,
+            "completedQuizzes":2,
+            "quiz_catalogue": [1,2,3,4,5],
+            "roomScores": {
+                "1": 6,
+                "2": 8
+            }
         }
     }
 ]

@@ -1,6 +1,15 @@
 <template>
   <div>
-    <nav class="navbar"><div class="container"><div class="navbar-content"><div class="navbar-brand">🎯 Multiplayer Quiz</div></div></div></nav>
+    <nav class="navbar">
+      <div class="container">
+        <div class="navbar-content">
+          <div class="navbar-brand">🎯 Multiplayer Quiz</div>
+          <div class="nav-links">
+            <button class="btn btn-secondary" @click.prevent="goBack()">Zurück zum Dashboard</button>
+          </div>
+        </div>
+      </div>
+    </nav>
 
     <div class="container">
       <div v-if="loading" class="card">⏳ Raum wird geladen…</div>
@@ -11,11 +20,7 @@
           <h2>🏁 Quiz beendet</h2>
           <p>Dein Ergebnis: {{ score }} / {{ room.questions.length }}</p>
           <button class="btn btn-primary" @click="goBack">Zurück zum Dashboard</button>
-          <button
-              class="btn btn-secondary"
-              @click="manageQuestions"
-              style="padding:4px 10px;font-size:12px;"
-          >
+          <button class="btn btn-secondary" @click="manageQuestions" style="padding:4px 10px;font-size:12px;">
             🔧 Fragen verwalten
           </button>
         </div>
@@ -26,7 +31,8 @@
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <div>
               <h3>{{ room.name }}</h3>
-              <div style="color:#666">Schwierigkeit: {{ getDifficultyText(room.difficulty) }} • Modus: {{ room.gameMode }}</div>
+              <div style="color:#666">Schwierigkeit: {{ getDifficultyText(room.difficulty) }} • Modus: {{ room.gameMode
+                }}</div>
             </div>
             <div>
               <small>Frage {{ currentQuestionIndex + 1 }} / {{ room.questions.length }}</small>
@@ -38,15 +44,19 @@
 
             <div v-if="currentQuestion.type === 'multiple_choice'">
               <div v-for="(opt, i) in currentQuestion.options" :key="i" class="answer-option"
-                   :class="{'selected': selectedAnswer === i, 'correct': reveal && i === currentQuestion.correctAnswer, 'incorrect': reveal && selectedAnswer === i && i !== currentQuestion.correctAnswer }"
-                   @click="selectAnswer(i)">
+                :class="{'selected': selectedAnswer === i, 'correct': reveal && i === currentQuestion.correctAnswer, 'incorrect': reveal && selectedAnswer === i && i !== currentQuestion.correctAnswer }"
+                @click="selectAnswer(i)">
                 {{ String.fromCharCode(65 + i) }}) {{ opt }}
               </div>
             </div>
 
             <div v-else-if="currentQuestion.type === 'true_false'">
-              <div class="answer-option" :class="{'selected': selectedAnswer === 0, 'correct': reveal && currentQuestion.correctAnswer === 0}" @click="selectAnswer(0)">✅ Wahr</div>
-              <div class="answer-option" :class="{'selected': selectedAnswer === 1, 'correct': reveal && currentQuestion.correctAnswer === 1}" @click="selectAnswer(1)">❌ Falsch</div>
+              <div class="answer-option"
+                :class="{'selected': selectedAnswer === 0, 'correct': reveal && currentQuestion.correctAnswer === 0}"
+                @click="selectAnswer(0)">✅ Wahr</div>
+              <div class="answer-option"
+                :class="{'selected': selectedAnswer === 1, 'correct': reveal && currentQuestion.correctAnswer === 1}"
+                @click="selectAnswer(1)">❌ Falsch</div>
             </div>
 
             <div v-else-if="currentQuestion.type === 'text_input'">
@@ -55,13 +65,41 @@
 
             <div style="margin-top:16px;">
               <button class="btn btn-primary" :disabled="!canSubmit" @click="submitAnswer">✅ Antwort bestätigen</button>
-              <button v-if="reveal" class="btn btn-primary" @click="nextQuestion" style="margin-left:8px;">➡️ Nächste Frage</button>
+              <button v-if="reveal" class="btn btn-primary" @click="nextQuestion" style="margin-left:8px;">➡️ Nächste
+                Frage</button>
             </div>
 
             <div v-if="feedback" style="margin-top:12px;" :class="feedbackClass">{{ feedback }}</div>
-            <div v-if="currentQuestion.explanation && reveal" style="margin-top:12px;padding:12px;background:#f8f9fa;border-left:4px solid #007bff;border-radius:6px;">💡 {{ currentQuestion.explanation }}</div>
+            <div v-if="currentQuestion.explanation && reveal"
+              style="margin-top:12px;padding:12px;background:#f8f9fa;border-left:4px solid #007bff;border-radius:6px;">
+              💡 {{ currentQuestion.explanation }}</div>
           </div>
         </div>
+      </div>
+    </div>
+    <div class="container">
+      <div class="card" style="cursor:pointer;">
+        <button class="btn btn-primary" @click.prevent="showStatistics()">{{isShowingStatistics? 'Schließen' : 'Raum-Statistik anzeigen'}}</button>
+          <table v-show="isShowingStatistics">
+            <tbody>
+              <tr>
+                <td>Bester Spieler im Raum</td>
+                <td>Hans</td>
+              </tr>
+              <tr>
+                <td>Leistung des besten Spielers</td>
+                <td>100%</td>
+              </tr>
+              <tr>
+                <td>Dein Rang</td>
+                <td>10</td>
+              </tr>
+              <tr>
+                <td>Deine Bestleistung</td>
+                <td>55%</td>
+              </tr>
+            </tbody>
+          </table>
       </div>
     </div>
   </div>
@@ -86,7 +124,8 @@ export default {
       reveal: false,
       score: 0,
       feedback: '',
-      statsSent: false
+      statsSent: false,
+      isShowingStatistics: false
     }
   },
   computed: {
@@ -271,6 +310,9 @@ export default {
     },
     goBack() {
       router.push('/dashboard')
+    },
+    showStatistics(){
+      this.isShowingStatistics = !this.isShowingStatistics
     }
   }
 }
@@ -284,4 +326,21 @@ export default {
 .alert{padding:12px;border-radius:6px;margin-top:12px}
 .alert-error{background:#f8d7da;color:#721c24;border:1px solid #f5c6cb}
 .alert-success{background:#d4edda;color:#155724;border:1px solid #c3e6cb}
+
+tbody tr {
+    border-bottom: 1px solid #dddddd;
+}
+
+td {
+    padding: 12px 15px;
+    text-align: left;
+}
+
+td:nth-of-type(odd) {
+    font-weight: 600;
+}
+
+tbody tr:last-of-type {
+    border-bottom: none;
+}
 </style>
