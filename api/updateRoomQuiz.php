@@ -34,7 +34,7 @@ if ((int)$owner !== $userID) {
 
 // 2) falls quizID > 0: prüfen, ob Quiz existiert
 if ($quizID > 0) {
-    $stQ = $pdo->prepare("SELECT 1 FROM Quiz WHERE quizID = :qid");
+    $stQ = $pdo->prepare("SELECT 1 FROM quiz WHERE quizID = :qid");
     $stQ->execute([':qid' => $quizID]);
     if (!$stQ->fetch()) {
         http_response_code(400);
@@ -44,7 +44,7 @@ if ($quizID > 0) {
 }
 
 // 3) Update
-$stU = $pdo->prepare("UPDATE Room SET quizID = :qid WHERE roomID = :rid");
+$stU = $pdo->prepare("UPDATE room SET quizID = :qid WHERE roomID = :rid");
 $stU->execute([
     ':qid' => $quizID > 0 ? $quizID : null,
     ':rid' => $roomID

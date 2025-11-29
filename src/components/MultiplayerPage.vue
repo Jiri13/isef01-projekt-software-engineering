@@ -112,6 +112,7 @@ export default {
   watch: {
     quizFinished (val) {
       if (val && !this.statsSent) {
+        console.log("Quiz beendet")
         this.sendStats();
       }
     }

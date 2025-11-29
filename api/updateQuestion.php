@@ -44,7 +44,7 @@ try {
 
     // Frage aktualisieren
     $stmt = $pdo->prepare("
-        UPDATE Question
+        UPDATE question
         SET question_text = :text,
             question_type = :type,
             difficulty = :difficulty,
@@ -62,13 +62,13 @@ try {
     ]);
 
     // Alte Optionen löschen
-    $pdo->prepare("DELETE FROM Question_Option WHERE questionID = :qid")
+    $pdo->prepare("DELETE FROM question_option WHERE questionID = :qid")
         ->execute([':qid' => $questionID]);
 
     // Neue Optionen einfügen (falls Multiple Choice)
     if ($type === 'multiple_choice' && !empty($options)) {
         $optStmt = $pdo->prepare("
-            INSERT INTO Question_Option (questionID, option_text, is_correct)
+            INSERT INTO question_option (questionID, option_text, is_correct)
             VALUES (:questionID, :text, :isCorrect)
         ");
         foreach ($options as $opt) {

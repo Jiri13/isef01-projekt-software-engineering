@@ -25,11 +25,11 @@ try {
     $pdo->beginTransaction();
 
     // zuerst Optionen löschen
-    $pdo->prepare("DELETE FROM Question_Option WHERE questionID = :qid")
+    $pdo->prepare("DELETE FROM question_option WHERE questionID = :qid")
         ->execute([':qid' => $questionID]);
 
     // dann eigentliche Frage
-    $pdo->prepare("DELETE FROM Question WHERE questionID = :qid")
+    $pdo->prepare("DELETE FROM question WHERE questionID = :qid")
         ->execute([':qid' => $questionID]);
 
     $pdo->commit();

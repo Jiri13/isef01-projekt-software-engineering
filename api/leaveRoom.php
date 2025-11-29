@@ -24,7 +24,7 @@ if ($roomID <= 0 || $userID <= 0) {
 }
 
 // [HOW] Raum lookup, um Existenz und Host später zu prüfen
-$st = $pdo->prepare("SELECT userID FROM Room WHERE roomID = :r LIMIT 1");
+$st = $pdo->prepare("SELECT userID FROM room WHERE roomID = :r LIMIT 1");
 $st->execute([':r' => $roomID]);
 $room = $st->fetch();
 
@@ -42,7 +42,7 @@ if ((int)$room['userID'] === $userID) {
 }
 
 // [HOW] Idempotenz-Check: nur löschen, wenn User Teilnehmer ist
-$st2 = $pdo->prepare("SELECT 1 FROM RoomParticipant WHERE roomID = :r AND userID = :u");
+$st2 = $pdo->prepare("SELECT 1 FROM roomparticipant WHERE roomID = :r AND userID = :u");
 $st2->execute([':r' => $roomID, ':u' => $userID]);
 if (!$st2->fetch()) {
     http_response_code(404);
@@ -51,7 +51,7 @@ if (!$st2->fetch()) {
 }
 
 // [IO] Austragen aus Teilnehmerliste; FK/UNIQUE sollten Konsistenz sichern
-$del = $pdo->prepare("DELETE FROM RoomParticipant WHERE roomID = :r AND userID = :u");
+$del = $pdo->prepare("DELETE FROM roomparticipant WHERE roomID = :r AND userID = :u");
 $del->execute([':r' => $roomID, ':u' => $userID]);
 
 echo json_encode(['ok' => true, 'roomID' => $roomID, 'userID' => $userID]);

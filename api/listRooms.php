@@ -36,13 +36,13 @@ SELECT
   COALESCE(qstats.questions_count, 0)  AS questions_count,
   qstats.avg_diff                      AS avg_diff
 
-FROM Room r
+FROM room r
 
 LEFT JOIN (
     SELECT
         roomID,
         COUNT(*) AS cnt
-    FROM RoomParticipant
+    FROM roomparticipant
     GROUP BY roomID
 ) rp ON rp.roomID = r.roomID
 
@@ -64,7 +64,7 @@ LEFT JOIN (
 
 WHERE
     r.userID = :uid
-    OR r.roomID IN (SELECT roomID FROM RoomParticipant WHERE userID = :uid)
+    OR r.roomID IN (SELECT roomID FROM roomparticipant WHERE userID = :uid)
 
 ORDER BY r.started DESC
 ";
@@ -86,7 +86,7 @@ $participants = [];
 
 if (!empty($roomIds)) {
     $placeholders = implode(',', array_fill(0, count($roomIds), '?'));
-    $sqlP = "SELECT roomID, userID FROM RoomParticipant WHERE roomID IN ($placeholders)";
+    $sqlP = "SELECT roomID, userID FROM roomparticipant WHERE roomID IN ($placeholders)";
     $stP = $pdo->prepare($sqlP);
     $stP->execute($roomIds);
 

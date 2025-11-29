@@ -24,7 +24,7 @@ if ($roomID <= 0 || $userID <= 0) {
 }
 
 // [WHY] Autorisierung: Nur Host (Room.userID) darf löschen
-$st = $pdo->prepare("SELECT userID FROM Room WHERE roomID = :roomID"); // [HOW] Prepared Statement verhindert SQL-Injection
+$st = $pdo->prepare("SELECT userID FROM room WHERE roomID = :roomID"); // [HOW] Prepared Statement verhindert SQL-Injection
 $st->execute([':roomID' => $roomID]);
 $room = $st->fetch();
 
@@ -47,12 +47,12 @@ if ((int)$room['userID'] !== $userID) {
 $pdo->beginTransaction();
 try {
     // [IO] Abhängige Daten zuerst entfernen; alternativ FK ON DELETE CASCADE nutzen
-    $pdo->prepare("DELETE FROM RoomParticipant WHERE roomID = :roomID")->execute([':roomID' => $roomID]);
-    $pdo->prepare("DELETE FROM RoomAnswer WHERE roomID = :roomID")->execute([':roomID' => $roomID]);
-    $pdo->prepare("DELETE FROM ChatMessage WHERE roomID = :roomID")->execute([':roomID' => $roomID]);
+    $pdo->prepare("DELETE FROM roomparticipant WHERE roomID = :roomID")->execute([':roomID' => $roomID]);
+    $pdo->prepare("DELETE FROM roomanswer WHERE roomID = :roomID")->execute([':roomID' => $roomID]);
+    $pdo->prepare("DELETE FROM chatmessage WHERE roomID = :roomID")->execute([':roomID' => $roomID]);
 
     // [HOW] Raum selbst löschen; greift erst nach Entfernen der Kind-Datensätze
-    $pdo->prepare("DELETE FROM Room WHERE roomID = :roomID")->execute([':roomID' => $roomID]);
+    $pdo->prepare("DELETE FROM room WHERE roomID = :roomID")->execute([':roomID' => $roomID]);
     // [ASSUME] Keine weiteren Tabellen mit roomID-FKs; sonst: erweitern oder CASCADE nutzen.
     // [PERF] Mit FK-Cascade würde ein einzelnes DELETE auf Room genügen (weniger Roundtrips).
 

@@ -65,7 +65,7 @@ else {
 function generateUniqueCode(PDO $pdo, $length = 6) {
     while (true) {
         $rand = strtoupper(substr(base_convert(bin2hex(random_bytes(5)),16,36),0,$length));
-        $st = $pdo->prepare("SELECT 1 FROM Room WHERE code = :c LIMIT 1");
+        $st = $pdo->prepare("SELECT 1 FROM room WHERE code = :c LIMIT 1");
         $st->execute([':c'=>$rand]);
         if (!$st->fetch()) return $rand;
     }
@@ -73,7 +73,7 @@ function generateUniqueCode(PDO $pdo, $length = 6) {
 if ($code === '') {
     $code = generateUniqueCode($pdo, 6); // [WHY] Server-seitige Code-Erzeugung
 } else {
-    $st = $pdo->prepare("SELECT 1 FROM Room WHERE code = :c LIMIT 1");
+    $st = $pdo->prepare("SELECT 1 FROM room WHERE code = :c LIMIT 1");
     $st->execute([':c'=>$code]);
     if ($st->fetch()) { http_response_code(409); echo json_encode(['error'=>'Room code already exists']); exit; } // [ERR] Konflikt melden
 }
@@ -81,21 +81,21 @@ if ($code === '') {
 try {
     $pdo->beginTransaction(); // [WHY] Konsistenz über mehrere Tabellen
 
-    $chkU = $pdo->prepare("SELECT 1 FROM Users WHERE userID = :u LIMIT 1");
+    $chkU = $pdo->prepare("SELECT 1 FROM users WHERE userID = :u LIMIT 1");
     $chkU->execute([':u'=>$userID]);
     if (!$chkU->fetch()) { $pdo->rollBack(); http_response_code(400); echo json_encode(['error'=>'userID not found']); exit; } // [ERR]
 
     $quizIdToStore = null;
     if ($quizID !== null && $quizID !== '' && (int)$quizID > 0) {
         $qId = (int)$quizID; // [ASSUME] numerische quizID; "0" gilt als ungültig
-        $chkQ = $pdo->prepare("SELECT 1 FROM Quiz WHERE quizID = :q LIMIT 1");
+        $chkQ = $pdo->prepare("SELECT 1 FROM quiz WHERE quizID = :q LIMIT 1");
         $chkQ->execute([':q'=>$qId]);
         if (!$chkQ->fetch()) { $pdo->rollBack(); http_response_code(400); echo json_encode(['error'=>'quizID not found']); exit; } // [ERR]
         $quizIdToStore = $qId;
     }
 
     $ins = $pdo->prepare("
-    INSERT INTO Room (room_name, play_mode, difficulty, max_participants, started, quizID, userID, code)
+    INSERT INTO room (room_name, play_mode, difficulty, max_participants, started, quizID, userID, code)
     VALUES (:name, :mode, :difficulty, :maxp, :started, :quizID, :userID, :code)
   ");
     if ($quizIdToStore === null) { $ins->bindValue(':quizID', null, PDO::PARAM_NULL); } // [HOW] Explizit NULL binden
@@ -113,7 +113,7 @@ try {
     $roomID = (int)$pdo->lastInsertId(); // [ASSUME] auto_increment und kein Trigger ändert ID
 
     if ($addHost) {
-        $insP = $pdo->prepare("INSERT INTO RoomParticipant (points, roomID, userID) VALUES (0, :r, :u)");
+        $insP = $pdo->prepare("INSERT INTO roomparticipant (points, roomID, userID) VALUES (0, :r, :u)");
         $insP->execute([':r'=>$roomID, ':u'=>$userID]); // [ASSUME] (roomID,userID) ist entweder unikal oder mehrfach erlaubt
         // [WARN] Kein Check auf bestehende Teilnahme; Duplicate wird auf DB-Constraint abgewiesen (falls vorhanden)
     }

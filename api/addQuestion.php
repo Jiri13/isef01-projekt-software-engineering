@@ -58,7 +58,7 @@ try {
 
     // Frage speichern
     $stmt = $pdo->prepare("
-        INSERT INTO Question
+        INSERT INTO question
             (quizID, question_text, question_type, difficulty, explanation, time_limit, userID, created_at)
         VALUES
             (:quizID, :text, :type, :difficulty, :explanation, :timeLimit, :userID, :created_at)
@@ -79,7 +79,7 @@ try {
     // Optionen nur speichern, wenn Typ Multiple Choice und Optionen vorhanden
     if ($type === 'multiple_choice' && !empty($options)) {
         $optStmt = $pdo->prepare("
-            INSERT INTO Question_Option (questionID, option_text, is_correct)
+            INSERT INTO question_option (questionID, option_text, is_correct)
             VALUES (:questionID, :text, :isCorrect)
         ");
         foreach ($options as $opt) {
