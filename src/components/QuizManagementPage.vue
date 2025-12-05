@@ -59,7 +59,7 @@ import { useSingleplayerStore } from '@/stores/singleplayer'
 import router from '@/router/index'
 import axios from 'axios'
 import questions from '../files/questions.json'   // <DATENBANK>
-import quizzes from '../files/quizzes.json'
+//import quizzes from '../files/quizzes.json'
 
 export default {
     components: {
@@ -72,7 +72,7 @@ export default {
         const sessionStore = useSessionStore()
         return {
             sessionStore,
-            quizzes,
+            quizzes: [],          // ← kommt jetzt aus der DB
             questions,
             selectedQuizID: null,
             selectedQuizTitle: '',
@@ -83,9 +83,41 @@ export default {
             error: null
         }
     },
+
+    async mounted() {
+    this.loading = true
+    this.error = null
+
+        try {
+            const { data } = await axios.get('/api/getQuizzes.php', {
+                params: {
+                    userID: this.sessionStore.userID  // kann optional genutzt werden
+                }
+            })
+
+            if (Array.isArray(data)) {
+                this.quizzes = data
+            } else {
+                console.error('Unerwartetes Quiz-Format:', data)
+                this.error = 'Unerwartete Antwort vom Server.'
+            }
+        } catch (e) {
+            console.error('Fehler beim Laden der Quizze:', e)
+            this.error = e?.response?.data?.error || 'Konnte Quizze nicht laden.'
+        } finally {
+            this.loading = false
+        }
+    },
+
     methods: {
         showCreateQuizModal() {
             this.isShowingCreateQuizModal = true;
+        },
+        onQuizCreated(newQuiz) {
+            // neues Quiz oben in die Liste einsetzen
+            if (newQuiz && newQuiz.quizID) {
+                this.quizzes.unshift(newQuiz)
+            }
         },
         editQuiz(quizID) {
             this.selectedQuizQuestions = [];
@@ -98,17 +130,36 @@ export default {
             });
             this.isShowingEditQuizModal = true;
         },
-        deleteQuiz(quizID) {
-            if (confirm('Möchtest du dieses Quiz wirklich löschen?')) {
-                console.log("Quiz gelöscht");
-                console.log(quizID);
+       async deleteQuiz(quizID) {
+            if (!confirm('Möchtest du dieses Quiz wirklich löschen?')) return;
+
+            try {
+                const { data } = await axios.post('/api/deleteQuiz.php', { quizID });
+
+                // Wenn der Server 200 liefert, gehen wir mal davon aus, dass es geklappt hat:
+                this.quizzes = this.quizzes.filter(q => q.quizID !== quizID);
+                alert('Quiz gelöscht.');
+
+                // Wenn du trotzdem auf data.ok bestehen willst:
+                // if (data && data.ok) {
+                //   this.quizzes = this.quizzes.filter(q => q.quizID !== quizID);
+                //   alert('Quiz gelöscht.');
+                // } else {
+                //   alert('Fehler beim Löschen: ' + (data.error || 'Unbekannt'));
+                // }
+
+            } catch (err) {
+                console.error('Fehler beim Löschen:', err);
+                alert('Serverfehler: ' + err.message);
             }
         },
+
+
         removeQuiz(quizID) {
-            if (confirm('Möchtest du dieses Quiz aus deiner Liste entfernen?')) {
-                console.log("Quiz entfernt");
-                console.log(quizID);
-            }
+            if (!confirm('Möchtest du dieses Quiz aus deiner Liste entfernen?')) return;
+
+            this.quizzes = this.quizzes.filter(q => q.quizID !== quizID);
+            alert('Nur aus deiner Liste entfernt.');
         },
         showQuestionPage() {
             router.push('/questions')

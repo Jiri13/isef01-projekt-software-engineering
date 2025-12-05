@@ -23,8 +23,14 @@
             </div>
 
             <label class="form-label">Fragen zum Quiz hinzufügen</label>
-            <button class="btn btn-primary" @click="isAllQuestionsCollapsed = !isAllQuestionsCollapsed"> {{
-                isAllQuestionsCollapsed ? 'Anzeigen' : 'Schließen' }}</button>
+            <button
+            class="btn btn-primary"
+            type="button"
+            @click="isAllQuestionsCollapsed = !isAllQuestionsCollapsed"
+            >
+            {{ isAllQuestionsCollapsed ? 'Anzeigen' : 'Schließen' }}
+            </button>
+
             <Transition name="collapse" @enter="enterAllQuestions" @leave="leaveAllQuestions">
                 <div v-show="!isAllQuestionsCollapsed" class="collapsible-content"
                     style="height: 250px; overflow-y: auto; margin-bottom: 24px;">
@@ -51,7 +57,7 @@
                             </div>
 
                             <div style="display: flex; gap: 8px; align-items: center;">
-                                <button class="btn btn-primary" @click.stop="addQuestion(question.questionID)"
+                                <button type="button" class="btn btn-primary" @click.stop="addQuestion(question.questionID)"
                                     style="padding: 6px 12px; font-size: 12px;">
                                     ➕ Hinzufügen
                                 </button>
@@ -71,7 +77,7 @@
 
 <script>
 import { useSessionStore } from '@/stores/session'
-import allQuestions from '../files/questions.json'
+//import allQuestions from '../files/questions.json'
 import axios from 'axios'
 
 export default {
@@ -83,18 +89,31 @@ export default {
         const session = useSessionStore()
         return {
             session,
-            allQuestions,
-            questions: [],
+            allQuestions: [],          // wird aus DB geladen
             isAllQuestionsCollapsed: true,
+
             form: {
                 name: '',
                 category: '',
                 description: '',
                 timeLimit: 0,
-                questions: []
+                questions: []          // vom Benutzer ausgewählte Frage-IDs
             }
-        };
+        }
     },
+    async mounted() {
+        try {
+            const { data } = await axios.get('/api/showQuizQuestions.php')
+            if (Array.isArray(data)) {
+                this.allQuestions = data
+            } else {
+                console.error('Unerwartetes Format von showQuizQuestions.php:', data)
+            }
+        } catch (e) {
+            console.error('Fehler beim Laden der Fragen für das Quiz-Modal:', e)
+        }
+    },
+
     methods: {
         close() {
             this.$emit('update:modelValue', false)
@@ -126,10 +145,24 @@ export default {
         getDifficultyClass(d) {
             return `difficulty-${(d || 'easy').toLowerCase()}`;
         },
-                addQuestion(questionID){
-            console.log("Added Question to Quiz")
-            console.log(questionID)
-        }
+        
+        addQuestion(questionID) {
+            if (!Array.isArray(this.form.questions)) {
+                this.form.questions = [];
+            }
+
+            const index = this.form.questions.indexOf(questionID);
+
+            if (index === -1) {
+                // hinzufügen
+                this.form.questions.push(questionID);
+                console.log('Frage hinzugefügt:', questionID, 'Aktuelle Liste:', this.form.questions);
+            } else {
+                // wieder entfernen (Toggle)
+                this.form.questions.splice(index, 1);
+                console.log('Frage entfernt:', questionID, 'Aktuelle Liste:', this.form.questions);
+            }
+        },
     }
 }
 </script>
