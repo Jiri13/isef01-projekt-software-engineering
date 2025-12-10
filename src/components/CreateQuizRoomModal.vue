@@ -34,8 +34,8 @@
         <label class="form-label">Quiz auswählen (optional)</label>
         <select class="form-input" v-model.number="form.quizID">
           <option :value="0">— Kein Quiz verknüpfen —</option>
-          <option v-for="q in quizzes" :key="q.id" :value="q.id">
-            {{ q.name }} (ID: {{ q.id }})
+          <option v-for="q in quizzes" :key="q.quizID" :value="q.quizID">
+            {{ q.title }} (ID: {{ q.quizID }})
           </option>
         </select>
         <small style="color:#666;">
@@ -135,20 +135,21 @@ export default {
         const newRoom = {
           id: data.room.id,
           name: data.room.name,
-          gameMode: data.room.playMode || data.room.playMode || data.room.play_mode || data.room.gameMode || 'cooperative',
+          gameMode: data.room.playMode || 'cooperative',
           difficulty: data.room.difficulty,
           code: data.room.code,
           hostID: data.room.hostID,
           started: data.room.started,
           quizID: data.room.quizID,
-          participants: [],          // wird von listRooms.php später befüllt
-          questions: [],             // wird von getRoom.php geladen
-          maxParticipants: data.room.maxParticipants ?? data.room.max_participants ?? this.form.maxParticipants
+          participants: [],
+          questions: [],
+          maxParticipants: data.room.maxParticipants ?? this.form.maxParticipants
         }
 
         this.$emit('created', newRoom)
         this.$emit('update:modelValue', false)
-        // Formular zurücksetzen
+
+        // Reset
         this.form.name = ''
         this.form.gameMode = 'cooperative'
         this.form.difficulty = 'easy'

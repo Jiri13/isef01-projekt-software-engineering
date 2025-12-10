@@ -1,6 +1,5 @@
 <?php
 // api/getQuizzes.php
-// [WHY] Endpoint zum Abrufen aller Quizzes inklusive Erstellername
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, OPTIONS');
@@ -10,15 +9,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { exit; }
 
 require __DIR__ . '/dbConnection.php';
 
-$userID = isset($_GET['userID']) ? (int)$_GET['userID'] : 0;
-
 try {
+    // FIX: q.userID hinzugefügt, damit das Frontend den Owner prüfen kann
     $sql = "
         SELECT
             q.quizID,
+            q.userID, 
             q.title,
             q.quiz_description,
             q.category,
+            q.time_limit,
             q.created_at,
             CONCAT(u.first_name, ' ', u.last_name) AS creatorName
         FROM quiz q

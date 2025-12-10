@@ -113,9 +113,9 @@ try {
     $roomID = (int)$pdo->lastInsertId(); // [ASSUME] auto_increment und kein Trigger ändert ID
 
     if ($addHost) {
+        // Host als Teilnehmer hinzufügen
         $insP = $pdo->prepare("INSERT INTO roomparticipant (points, roomID, userID) VALUES (0, :r, :u)");
-        $insP->execute([':r'=>$roomID, ':u'=>$userID]); // [ASSUME] (roomID,userID) ist entweder unikal oder mehrfach erlaubt
-        // [WARN] Kein Check auf bestehende Teilnahme; Duplicate wird auf DB-Constraint abgewiesen (falls vorhanden)
+        $insP->execute([':r'=>$roomID, ':u'=>$userID]);
     }
 
     $pdo->commit();

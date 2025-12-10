@@ -1,159 +1,198 @@
 <template>
   <div>
     <nav class="navbar">
-      <div class="container">
-        <div class="navbar-content">
-          <div class="navbar-brand">🎯 Multiplayer Quiz</div>
-          <div class="nav-links">
-            <button class="btn btn-secondary" @click.prevent="goBack()">Zurück zum Dashboard</button>
-          </div>
+      <div class="container navbar-content">
+        <div class="navbar-brand">🎮 Multiplayer Raum: {{ room ? room.name : 'Lade...' }}</div>
+        <div class="nav-links">
+          <span v-if="room" class="badge" style="margin-right:12px;">Code: {{ room.code }}</span>
+          <button class="btn btn-secondary" @click="leaveRoom">Verlassen</button>
         </div>
       </div>
     </nav>
 
-    <div class="container">
-      <div v-if="loading" class="card">⏳ Raum wird geladen…</div>
-      <div v-if="error" class="card" style="color:#dc3545">{{ error }}</div>
+    <div class="container" style="margin-top: 40px; max-width: 800px;">
 
-      <div v-if="room && currentQuestionIndex >= room.questions.length">
-        <div class="card" style="text-align:center;padding:36px;">
-          <h2>🏁 Quiz beendet</h2>
-          <p>Dein Ergebnis: {{ score }} / {{ room.questions.length }}</p>
-          <button class="btn btn-primary" @click="goBack">Zurück zum Dashboard</button>
-          <button class="btn btn-secondary" @click="manageQuestions" style="padding:4px 10px;font-size:12px;">
-            🔧 Fragen verwalten
+      <div v-if="loading" style="text-align: center; padding: 40px;">
+        <h2>⏳ Lade Raumdaten...</h2>
+      </div>
+
+      <div v-else-if="error" class="card" style="text-align: center; color: red;">
+        <h3>❌ Fehler</h3>
+        <p>{{ error }}</p>
+        <button class="btn btn-primary" @click="$router.push('/')">Zurück zum Dashboard</button>
+      </div>
+
+      <div v-else-if="quizFinished" class="card" style="text-align: center;">
+        <h2 style="color: #28a745; margin-bottom: 24px;">🎉 Quiz beendet!</h2>
+
+        <p style="font-size: 1.2rem;">Du hast <strong>{{ score }}</strong> Fragen richtig beantwortet.</p>
+
+        <div style="margin-top: 24px; display:flex; gap:12px; justify-content:center;">
+          <button class="btn btn-secondary" @click="showStatistics">
+            {{ isShowingStatistics ? 'Statistik verbergen' : '📊 Ergebnis anzeigen' }}
+          </button>
+          <button class="btn btn-primary" @click="$router.push('/')">🏠 Zum Dashboard</button>
+        </div>
+
+        <div v-if="isShowingStatistics" style="margin-top:24px; border-top:1px solid #eee; padding-top:16px;">
+
+          <div v-if="room.gameMode === 'cooperative'" style="background: #e3f2fd; padding: 20px; border-radius: 8px;">
+            <h3 style="color: #0d47a1;">🤝 Team-Leistung</h3>
+            <p style="font-size: 1.1rem; margin-top: 10px;">
+              Gemeinsam habt ihr erreicht:
+            </p>
+            <div style="font-size: 3rem; font-weight: bold; color: #007bff; margin: 10px 0;">
+              {{ roomStats.teamTotalPoints }} <span style="font-size: 1.5rem;">Punkte</span>
+            </div>
+            <p style="color: #666;">
+              Fantastische Zusammenarbeit! Jeder Punkt zählt für das Team.
+            </p>
+          </div>
+
+          <div v-else>
+            <h4 style="margin-bottom: 12px;">🏆 Rangliste</h4>
+            <table style="width:100%; text-align:left; border-collapse: collapse;">
+              <thead>
+              <tr style="border-bottom:2px solid #ddd; background: #f9f9f9;">
+                <th style="padding: 8px;">Rang</th>
+                <th style="padding: 8px;">Name</th>
+                <th style="padding: 8px; text-align: right;">Punkte</th>
+              </tr>
+              </thead>
+              <tbody>
+              <tr v-for="(p, i) in roomStats.leaderboard" :key="i" style="border-bottom:1px solid #eee;">
+                <td style="padding: 8px;">
+                  <span v-if="i===0">🥇</span>
+                  <span v-else-if="i===1">🥈</span>
+                  <span v-else-if="i===2">🥉</span>
+                  <span v-else>{{ i + 1 }}.</span>
+                </td>
+                <td style="padding: 8px;">
+                  {{ p.first_name }} {{ p.last_name }}
+                  <span v-if="Number(p.userID) === Number(sessionStore.userID)" style="color:#007bff; font-weight:bold;">(Du)</span>
+                </td>
+                <td style="padding: 8px; text-align: right; font-weight: bold;">
+                  {{ p.points }}
+                </td>
+              </tr>
+              </tbody>
+            </table>
+            <p v-if="!roomStats.leaderboard || roomStats.leaderboard.length === 0">Keine Daten verfügbar.</p>
+          </div>
+
+        </div>
+      </div>
+
+      <div v-else-if="currentQuestion" class="card">
+
+        <div style="display: flex; justify-content: space-between; margin-bottom: 16px; color: #666;">
+          <span>Frage {{ currentQuestionIndex + 1 }} von {{ room.questions.length }}</span>
+          <span>Punkte: {{ score }}</span>
+        </div>
+
+        <h3 style="margin-bottom: 24px; min-height: 60px;">
+          {{ currentQuestion.text }}
+        </h3>
+
+        <div v-if="currentQuestion.type === 'text_input'">
+          <input
+              v-model="textInputAnswer"
+              type="text"
+              class="form-input"
+              placeholder="Deine Antwort eingeben..."
+              :disabled="reveal"
+              @keyup.enter="submitAnswer"
+          />
+          <small style="color:#666;">Bestätigen mit Enter oder Button unten</small>
+        </div>
+
+        <div v-else>
+          <div
+              v-for="(opt, index) in currentQuestion.options"
+              :key="index"
+              class="answer-option"
+              :class="{
+              'selected': selectedAnswer === index,
+              'correct': reveal && index === currentQuestion.correctAnswer,
+              'incorrect': reveal && selectedAnswer === index && index !== currentQuestion.correctAnswer
+            }"
+              @click="!reveal ? selectAnswer(index) : null"
+          >
+            <span style="font-weight:bold; margin-right:8px;">{{ String.fromCharCode(65 + index) }})</span>
+            {{ opt.text }}
+          </div>
+        </div>
+
+        <div v-if="reveal" style="margin-top: 24px; padding: 16px; border-radius: 8px; text-align: center;"
+             :style="{ background: lastAnswerCorrect ? '#d4edda' : '#f8d7da', color: lastAnswerCorrect ? '#155724' : '#721c24' }">
+          <strong>{{ feedback }}</strong>
+          <div v-if="currentQuestion.explanation" style="margin-top:8px; font-size:0.9rem; color:#555;">
+            ℹ️ {{ currentQuestion.explanation }}
+          </div>
+        </div>
+
+        <div style="margin-top: 24px; text-align: right;">
+          <button v-if="!reveal" class="btn btn-primary" @click="submitAnswer" :disabled="!canSubmit">
+            Antwort bestätigen
+          </button>
+          <button v-else class="btn btn-primary" @click="nextQuestion">
+            {{ currentQuestionIndex < room.questions.length - 1 ? 'Nächste Frage ➡️' : 'Ergebnisse anzeigen 🏁' }}
           </button>
         </div>
       </div>
 
-      <div v-else-if="room">
-        <div class="card">
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <div>
-              <h3>{{ room.name }}</h3>
-              <div style="color:#666">Schwierigkeit: {{ getDifficultyText(room.difficulty) }} • Modus: {{ room.gameMode
-                }}</div>
-            </div>
-            <div>
-              <small>Frage {{ currentQuestionIndex + 1 }} / {{ room.questions.length }}</small>
-            </div>
-          </div>
-
-          <div style="margin-top:18px;">
-            <div style="font-size:20px;font-weight:600;margin-bottom:12px">{{ currentQuestion?.text }}</div>
-
-            <div v-if="currentQuestion.type === 'multiple_choice'">
-              <div v-for="(opt, i) in currentQuestion.options" :key="i" class="answer-option"
-                :class="{'selected': selectedAnswer === i, 'correct': reveal && i === currentQuestion.correctAnswer, 'incorrect': reveal && selectedAnswer === i && i !== currentQuestion.correctAnswer }"
-                @click="selectAnswer(i)">
-                {{ String.fromCharCode(65 + i) }}) {{ opt }}
-              </div>
-            </div>
-
-            <div v-else-if="currentQuestion.type === 'true_false'">
-              <div class="answer-option"
-                :class="{'selected': selectedAnswer === 0, 'correct': reveal && currentQuestion.correctAnswer === 0}"
-                @click="selectAnswer(0)">✅ Wahr</div>
-              <div class="answer-option"
-                :class="{'selected': selectedAnswer === 1, 'correct': reveal && currentQuestion.correctAnswer === 1}"
-                @click="selectAnswer(1)">❌ Falsch</div>
-            </div>
-
-            <div v-else-if="currentQuestion.type === 'text_input'">
-              <input class="form-input" v-model="textInputAnswer" placeholder="Antwort eingeben..." />
-            </div>
-
-            <div style="margin-top:16px;">
-              <button class="btn btn-primary" :disabled="!canSubmit" @click="submitAnswer">✅ Antwort bestätigen</button>
-              <button v-if="reveal" class="btn btn-primary" @click="nextQuestion" style="margin-left:8px;">➡️ Nächste
-                Frage</button>
-            </div>
-
-            <div v-if="feedback" style="margin-top:12px;" :class="feedbackClass">{{ feedback }}</div>
-            <div v-if="currentQuestion.explanation && reveal"
-              style="margin-top:12px;padding:12px;background:#f8f9fa;border-left:4px solid #007bff;border-radius:6px;">
-              💡 {{ currentQuestion.explanation }}</div>
-          </div>
-        </div>
-      </div>
     </div>
-    <div class="container">
-      <div class="card" style="cursor:pointer;">
-        <button class="btn btn-primary" @click.prevent="showStatistics()">{{isShowingStatistics? 'Schließen' : 'Raum-Statistik anzeigen'}}</button>
-          <table v-show="isShowingStatistics">
-            <tbody>
-              <tr>
-                <td>Bester Spieler im Raum</td>
-                <td>Hans</td>
-              </tr>
-              <tr>
-                <td>Leistung des besten Spielers</td>
-                <td>100%</td>
-              </tr>
-              <tr>
-                <td>Dein Rang</td>
-                <td>10</td>
-              </tr>
-              <tr>
-                <td>Deine Bestleistung</td>
-                <td>55%</td>
-              </tr>
-            </tbody>
-          </table>
-      </div>
-    </div>
+
+    <ChatWidget v-if="room && room.id" :roomID="room.id" />
   </div>
 </template>
 
 <script>
 import axios from 'axios'
-import router from '@/router'
 import { useSessionStore } from '@/stores/session'
+import ChatWidget from './ChatWidget.vue'
 
 export default {
+  components: {
+    ChatWidget
+  },
   data() {
-    const sessionStore = useSessionStore()
     return {
-      sessionStore,
+      sessionStore: useSessionStore(),
       room: null,
-      loading: false,
+      loading: true,
       error: null,
+
       currentQuestionIndex: 0,
       selectedAnswer: null,
       textInputAnswer: '',
+
       reveal: false,
-      score: 0,
+      lastAnswerCorrect: false,
       feedback: '',
-      statsSent: false,
-      isShowingStatistics: false
+      score: 0,
+
+      // Stats
+      isShowingStatistics: false,
+      roomStats: {
+        leaderboard: [],
+        teamTotalPoints: 0 // NEU: Initialwert
+      }
     }
   },
   computed: {
-    quizFinished () {
+    currentQuestion() {
+      if (!this.room || !this.room.questions) return null
+      return this.room.questions[this.currentQuestionIndex]
+    },
+    quizFinished() {
       return this.room && this.currentQuestionIndex >= this.room.questions.length
     },
-    currentQuestion() {
-      return this.room?.questions?.[this.currentQuestionIndex] ?? null
-    },
     canSubmit() {
-      if (!this.currentQuestion) return false
       if (this.currentQuestion.type === 'text_input') {
-        return this.textInputAnswer.trim().length > 0 && !this.reveal
+        return this.textInputAnswer.trim().length > 0
       }
-      return this.selectedAnswer !== null && !this.reveal
-    },
-    feedbackClass() {
-      return this.reveal
-          ? (this.lastAnswerCorrect ? 'alert alert-success' : 'alert alert-error')
-          : ''
-    }
-  },
-  watch: {
-    quizFinished (val) {
-      if (val && !this.statsSent) {
-        console.log("Quiz beendet")
-        this.sendStats();
-      }
+      return this.selectedAnswer !== null
     }
   },
   mounted() {
@@ -161,186 +200,158 @@ export default {
   },
   methods: {
     async loadRoom() {
-      this.loading = true
-      this.error = null
-      const id = this.$route.params.id
+      let id = this.$route.params.id
+      if (!id && history.state?.roomID) id = history.state.roomID
+      if (!id && this.sessionStore.currentRoomID) id = this.sessionStore.currentRoomID
+
+      if (!id) {
+        this.error = "Keine Raum-ID gefunden. Bitte über das Dashboard beitreten."
+        this.loading = false
+        return
+      }
+      this.sessionStore.currentRoomID = id
 
       try {
-        let room = null
+        const res = await axios.get('/api/getRoom.php', { params: { roomID: id } })
 
-        try {
-          const res = await axios.get('/api/getRoom.php', { params: { roomID: id } })
-          if (res && res.data && !res.data.error) {
-            room = res.data
-          }
-        } catch (e) {
-          console.warn('getRoom.php failed, trying fallbacks', e?.response?.status, e?.response?.data)
+        if (res.data && res.data.room) {
+          this.room = res.data.room
+          // Normalisierung des gameMode (Datenbank liefert oft unterschiedliche cases)
+          if(this.room.gameMode) this.room.gameMode = this.room.gameMode.toLowerCase();
+
+          this.trackGameStart()
+        } else {
+          this.error = "Raum konnte nicht geladen werden (Daten leer)."
         }
-
-        if (!room && history.state && history.state.room) {
-          room = history.state.room
-        }
-
-        if (!room) {
-          const cached = localStorage.getItem(`room_${id}`)
-          if (cached) {
-            try {
-              room = JSON.parse(cached)
-            } catch (e) {
-              console.warn('Failed to parse room cache', e)
-            }
-          }
-        }
-
-        if (!room) {
-          const allRoomsRaw = localStorage.getItem('quiz_rooms')
-          if (allRoomsRaw) {
-            try {
-              const parsed = JSON.parse(allRoomsRaw)
-              const found = (parsed || []).find(r => String(r.id) === String(id))
-              if (found) room = found
-            } catch (e) {
-              console.warn('Failed to parse quiz_rooms', e)
-            }
-          }
-        }
-
-        if (!room) {
-          this.error = 'Raum nicht gefunden.'
-          this.room = null
-          return
-        }
-
-        if (!Array.isArray(room.participants)) room.participants = []
-        if (!Array.isArray(room.questions)) room.questions = []
-
-        this.room = room
-        console.log('Room hostID:', this.room.hostID, 'Session userID:', this.sessionStore.userID)
-
-
       } catch (e) {
         console.error(e)
-        this.error = 'Fehler beim Laden des Raums.'
+        this.error = "Fehler beim Laden des Raumes."
       } finally {
         this.loading = false
       }
     },
-    async sendStats() {
-      const userID        = Number(this.sessionStore.userID);
-      const quizID        = Number(this.room.quizID);
-      const totalAnswers  = this.room.questions.length;
-      const correctAnswers = this.score;
 
-      console.log('Stats-Payload:', {
-        userID,
-        quizID,
-        totalAnswers,
-        correctAnswers,
-      });
-
+    async trackGameStart() {
+      if(!this.room) return;
       try {
-        const res = await axios.post('/api/updateUserQuizStats.php', {
-          userID,
-          quizID,
-          totalAnswers,
-          correctAnswers,
+        await axios.post('/api/trackGameStart.php', {
+          roomID: this.room.id,
+          userID: this.sessionStore.userID
         });
-        console.log('API Response:', res.data);
-      } catch (err) {
-        console.error('Fehler beim Aktualisieren der Statistiken:', err);
-        if (err.response) {
-          console.log('Serverantwort:', err.response.data);
-        }
-      }
+      } catch(e) { console.warn("Track start failed", e); }
     },
-    manageQuestions() {
-      if (!this.room?.quizID) {
-        alert('Diesem Raum ist kein Quiz zugeordnet.')
-        return
-      }
-      this.$router.push({
-        path: '/questions',
-        query: { quizID: this.room.quizID }
-      })
-    },
-    selectAnswer(i) {
-      if (this.reveal) return
-      this.selectedAnswer = i
-    },
-    submitAnswer() {
-      if (!this.currentQuestion) return
-      let correct = false
 
-      if (this.currentQuestion.type === 'text_input') {
-        const ua = this.textInputAnswer.trim().toLowerCase()
-        const ca = (this.currentQuestion.correctAnswerText || '').toLowerCase()
-        correct = ua === ca
+    selectAnswer(index) {
+      this.selectedAnswer = index
+    },
+
+    async submitAnswer() {
+      const q = this.currentQuestion
+      if (!q) return
+
+      let correct = false
+      let playedOptionID = null
+
+      if (q.type === 'text_input') {
+        const userAnswer = this.textInputAnswer.trim().toLowerCase()
+        let correctAnswerText = ''
+        if (q.options && q.options.length > 0) {
+          correctAnswerText = q.options[0].text.trim().toLowerCase()
+          playedOptionID = q.options[0].id
+        }
+        correct = (userAnswer === correctAnswerText && userAnswer !== '')
       } else {
-        correct = this.selectedAnswer === this.currentQuestion.correctAnswer
+        correct = (this.selectedAnswer === q.correctAnswer)
+        if (this.selectedAnswer !== null && q.options && q.options[this.selectedAnswer]) {
+          playedOptionID = q.options[this.selectedAnswer].id
+        }
       }
 
       if (correct) this.score++
+
+      const qID = q.id || q.questionID;
+      if (qID) {
+        axios.post('/api/submitMultiplayerAnswer.php', {
+          roomID: this.room.id,
+          userID: this.sessionStore.userID,
+          questionID: qID,
+          optionID: playedOptionID,
+          isCorrect: correct
+        }).catch(e => console.error("Stats Error", e));
+      }
+
       this.reveal = true
       this.lastAnswerCorrect = correct
-      this.feedback = correct
-          ? '✅ Richtig!'
-          : `❌ Falsch. Richtige Antwort: ${this.getCorrectLabel()}`
+      this.feedback = correct ? '✅ Richtig!' : `❌ Falsch. Richtige Antwort: ${this.getCorrectLabel()}`
     },
+
     getCorrectLabel() {
-      if (!this.currentQuestion) return ''
-      if (this.currentQuestion.type === 'text_input') {
-        return this.currentQuestion.correctAnswerText
+      const q = this.currentQuestion
+      if (!q) return ''
+      if (q.type === 'text_input') {
+        return (q.options && q.options.length > 0) ? q.options[0].text : '???'
       }
-      return this.currentQuestion.options?.[this.currentQuestion.correctAnswer] ?? ''
+      if (typeof q.correctAnswer === 'number' && q.options && q.options[q.correctAnswer]) {
+        return q.options[q.correctAnswer].text
+      }
+      return 'Unbekannt'
     },
+
     nextQuestion() {
-      this.currentQuestionIndex++
+      if (this.currentQuestionIndex < this.room.questions.length - 1) {
+        this.currentQuestionIndex++
+        this.resetTurn()
+      } else {
+        this.currentQuestionIndex++
+      }
+    },
+
+    resetTurn() {
+      this.reveal = false
       this.selectedAnswer = null
       this.textInputAnswer = ''
-      this.reveal = false
       this.feedback = ''
     },
-    getDifficultyText(d) {
-      switch (d) {
-        case 'easy': return 'Leicht'
-        case 'medium': return 'Mittel'
-        case 'hard': return 'Schwer'
-        default: return d
+
+    async showStatistics() {
+      // Toggle
+      if (this.isShowingStatistics) {
+        this.isShowingStatistics = false;
+        return;
       }
+
+      this.isShowingStatistics = true;
+      try {
+        const res = await axios.get('/api/getRoomDetailsStats.php', {
+          params: { roomID: this.room.id, userID: this.sessionStore.userID }
+        })
+        this.roomStats = res.data
+      } catch(e) { console.error(e) }
     },
-    goBack() {
-      router.push('/dashboard')
-    },
-    showStatistics(){
-      this.isShowingStatistics = !this.isShowingStatistics
+
+    leaveRoom() {
+      this.$router.push('/')
     }
   }
 }
 </script>
 
 <style scoped>
-.answer-option{padding:12px;margin:8px 0;border:2px solid #ddd;border-radius:6px;cursor:pointer;transition:all 0.15s}
-.answer-option.selected{background:#007bff;color:white;border-color:#007bff}
-.answer-option.correct{background:#28a745;color:white;border-color:#28a745}
-.answer-option.incorrect{background:#dc3545;color:white;border-color:#dc3545}
-.alert{padding:12px;border-radius:6px;margin-top:12px}
-.alert-error{background:#f8d7da;color:#721c24;border:1px solid #f5c6cb}
-.alert-success{background:#d4edda;color:#155724;border:1px solid #c3e6cb}
-
-tbody tr {
-    border-bottom: 1px solid #dddddd;
-}
-
-td {
-    padding: 12px 15px;
-    text-align: left;
-}
-
-td:nth-of-type(odd) {
-    font-weight: 600;
-}
-
-tbody tr:last-of-type {
-    border-bottom: none;
-}
+/* CSS Styles bleiben wie gehabt */
+.navbar { background: #fff; border-bottom: 1px solid #ddd; padding: 1rem 0; margin-bottom: 20px; }
+.container { width: 90%; max-width: 1200px; margin: 0 auto; }
+.navbar-content { display: flex; justify-content: space-between; align-items: center; }
+.navbar-brand { font-size: 1.2rem; font-weight: bold; color: #007bff; }
+.card { background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 24px; }
+.form-input { width: 100%; padding: 12px; font-size: 1rem; border: 1px solid #ccc; border-radius: 4px; }
+.answer-option { padding: 16px; margin-bottom: 12px; border: 2px solid #eee; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
+.answer-option:hover { background: #f9f9f9; border-color: #ccc; }
+.answer-option.selected { border-color: #007bff; background: #e7f1ff; }
+.answer-option.correct { border-color: #28a745; background: #d4edda; color: #155724; }
+.answer-option.incorrect { border-color: #dc3545; background: #f8d7da; color: #721c24; }
+.btn { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 1rem; }
+.btn-primary { background: #007bff; color: white; }
+.btn-secondary { background: #6c757d; color: white; }
+.btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.badge { background: #eee; padding: 4px 8px; border-radius: 4px; font-size: 0.9rem; }
 </style>

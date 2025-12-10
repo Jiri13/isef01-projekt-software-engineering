@@ -1,7 +1,7 @@
 <?php
-$dsn = 'mysql:host=localhost;dbname=if0_39994504_defaultdb;charset=utf8mb4';
+$dsn = 'mysql:host=docker;dbname=if0_39994504_defaultdb;charset=utf8mb4';
 $user = 'root';
-$pass = '';
+$pass = 'root';
 // [WARN] Zugangsdaten hartkodiert und User 'root' – in Prod via ENV-Variablen oder Secret-Manager laden,
 //        und nur minimal nötige Rechte vergeben (Least Privilege).
 

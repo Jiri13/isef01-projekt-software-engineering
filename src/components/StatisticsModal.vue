@@ -45,7 +45,6 @@
 <script>
 import { useSessionStore } from '@/stores/session'
 import users from '../files/users.json'
-import questions from '../files/questions.json'
 import router from '@/router/index'
 import axios from 'axios'
 

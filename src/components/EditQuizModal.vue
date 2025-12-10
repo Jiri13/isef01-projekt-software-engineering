@@ -1,261 +1,175 @@
 <template>
-    <div v-if="quizzes[quizID - 1].userID === session.userID" class="modal-inner"
-        style="max-width:640px;width:100%;background:white;border-radius:8px;padding:20px;">
-        <h1>✏️ Quiz bearbeiten</h1>
-        <h2>{{ quizzes[quizID - 1].title }}</h2>
-        <p>Erstelldatum: {{ quizzes[quizID - 1].created_at }}</p>
-        <form @submit.prevent="updateQuiz">
-            <div class="form-group">
-                <label class="form-label">Quiz-Name</label>
-                <input class="form-input" v-model="form.name" required />
-            </div>
+  <div v-if="quizData" class="modal-inner"
+       style="max-width:640px;width:100%;background:white;border-radius:8px;padding:20px;max-height:90vh;overflow-y:auto;">
 
-            <div class="form-group">
-                <label class="form-label">Fach/Modul</label>
-                <input class="form-input" v-model="form.category" required />
-            </div>
+    <h2 style="margin-bottom: 12px;">✏️ Quiz bearbeiten: {{ quizData.title }}</h2>
 
-            <div class="form-group">
-                <label class="form-label">Beschreibung</label>
-                <input class="form-input" v-model="form.description" required />
-            </div>
+    <form @submit.prevent="saveQuizMetadata">
+      <div class="form-group"><label class="form-label">Name</label><input class="form-input" v-model="form.name" required /></div>
+      <div class="form-group"><label class="form-label">Kategorie</label><input class="form-input" v-model="form.category" required /></div>
+      <div class="form-group"><label class="form-label">Beschreibung</label><input class="form-input" v-model="form.description" required /></div>
+      <div class="form-group"><label class="form-label">Zeitlimit</label><input type="number" class="form-input" v-model.number="form.timeLimit" /></div>
+      <button type="submit" class="btn btn-primary" style="width:100%; margin-bottom:20px;">💾 Speichern</button>
+    </form>
 
-            <div class="form-group">
-                <label class="form-label">Zeitlimit</label>
-                <input type="number" min="2" max="99" class="form-input" v-model.number="form.timeLimit" />
-            </div>
-        </form>
-        <label class="form-label">Fragen im Quiz</label>
-        <button class="btn btn-primary" @click="isQuizQuestionsCollapsed = !isQuizQuestionsCollapsed"> {{
-            isQuizQuestionsCollapsed ? 'Anzeigen' : 'Schließen' }}</button>
-        <Transition name="collapse" @enter="enterQuizQuestions" @leave="leaveQuizQuestions">
-            <div v-show="!isQuizQuestionsCollapsed" class="collapsible-content"
-                style="height: 250px; overflow-y: auto; margin-bottom: 24px;">
-                <div v-for="question in questions" :key="question.questionID" class="card"
-                    style="margin-bottom: 12px; border: 1px solid #ddd;">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; padding: 12px;">
-                        <div style="flex: 1; cursor: default;">
-                            <strong style="font-size: 16px; color: #007bff;">{{ question.question_text }}</strong>
-                            <span :class="['badge', getDifficultyClass(question.difficulty)]"
-                                style="padding: 2px 8px; border-radius: 10px; font-size: 10px; margin-left: 8px;">
-                                {{ getDifficultyLabel(question.difficulty) }}
-                            </span>
-                            <br>
-                            <small style="color: #666;">
-                                Typ: {{ question.question_type === 'multiple_choice' ? 'Multiple Choice' :
-                                    question.question_type === 'true_false' ?
-                                        'Wahr/Falsch' : 'Texteingabe' }} |
-                                Zeitlimit: {{ question.time_limit }}s
-                            </small>
-                            <br v-if="question.explanation">
-                            <small v-if="question.explanation" style="color: #28a745;"><em>Mit Erklärung</em></small>
-                        </div>
+    <hr>
 
-                        <div style="display: flex; gap: 8px; align-items: center;">
-                            <button class="btn btn-danger" @click.stop="deleteQuestion(question.questionID)"
-                                style="padding: 6px 12px; font-size: 12px;">
-                                🗑️ Löschen
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </Transition>
-        <label class="form-label">Fragen zum Quiz hinzufügen</label>
-        <button class="btn btn-primary" @click="isAllQuestionsCollapsed = !isAllQuestionsCollapsed"> {{
-            isAllQuestionsCollapsed ? 'Anzeigen' : 'Schließen' }}</button>
-        <Transition name="collapse" @enter="enterAllQuestions" @leave="leaveAllQuestions">
-            <div v-show="!isAllQuestionsCollapsed" class="collapsible-content"
-                style="height: 250px; overflow-y: auto; margin-bottom: 24px;">
-                <div v-for="question in allQuestions" :key="question.questionID" class="card"
-                    style="margin-bottom: 12px; border: 1px solid #ddd;">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; padding: 12px;">
-                        <div style="flex: 1; cursor: default;">
-                            <strong style="font-size: 16px; color: #007bff;">{{ question.question_text }}</strong>
-                            <span :class="['badge', getDifficultyClass(question.difficulty)]"
-                                style="padding: 2px 8px; border-radius: 10px; font-size: 10px; margin-left: 8px;">
-                                {{ getDifficultyLabel(question.difficulty) }}
-                            </span>
-                            <br>
-                            <small style="color: #666;">
-                                Typ: {{ question.question_type === 'multiple_choice' ? 'Multiple Choice' :
-                                    question.question_type === 'true_false' ?
-                                        'Wahr/Falsch' : 'Texteingabe' }} |
-                                Zeitlimit: {{ question.time_limit }}s
-                            </small>
-                            <br v-if="question.explanation">
-                            <small v-if="question.explanation" style="color: #28a745;"><em>Mit Erklärung</em></small>
-                        </div>
+    <h3>Fragen im Quiz ({{ questions ? questions.length : 0 }})</h3>
+    <button class="btn btn-secondary" @click="isQuizQuestionsCollapsed = !isQuizQuestionsCollapsed" style="margin-bottom:10px; font-size:12px;">
+      {{ isQuizQuestionsCollapsed ? 'Anzeigen' : 'Verbergen' }}
+    </button>
 
-                        <div style="display: flex; gap: 8px; align-items: center;">
-                            <button class="btn btn-primary" @click.stop="addQuestion(question.questionID)"
-                                style="padding: 6px 12px; font-size: 12px;">
-                                ➕ Hinzufügen
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </Transition>
-        <div style="display:flex;gap:12px;margin-top:16px;">
-            <button type="button" class="btn btn-secondary" @click="close">Abbrechen</button>
-            <button type="submit" class="btn btn-primary" @click="save">Speichern</button>
+    <div v-show="!isQuizQuestionsCollapsed" class="list-container">
+      <div v-if="!questions || questions.length === 0" style="padding:10px; text-align:center; color:#666;">Noch keine Fragen zugeordnet.</div>
+      <div v-else v-for="q in questions" :key="q.questionID || q.id" class="card-item" style="border-left: 4px solid #007bff;">
+        <div style="flex: 1;">
+          <strong>{{ q.question_text || q.text }}</strong>
+          <span class="badge">{{ q.difficulty }}</span>
         </div>
-    </div>
-    <!-- Quiz nicht selbst erstellt -->
-    <div v-else class="modal-inner" style="max-width:640px;width:100%;background:white;border-radius:8px;padding:20px;">
-        <h2>Fragen in: {{ quizzes[quizID - 1].title }}</h2>
-        <p>Erstelldatum: {{ quizzes[quizID - 1].created_at }}</p>
-        <div style="height: 500px; overflow-y: auto; margin-bottom: 24px;">
-            <div v-for="question in allQuestions" :key="question.questionID" class="card"
-                style="margin-bottom: 12px; border: 1px solid #ddd;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; padding: 12px;">
-                    <div style="flex: 1; cursor: default;">
-                        <strong style="font-size: 16px; color: #007bff;">{{ question.question_text }}</strong>
-                        <span :class="['badge', getDifficultyClass(question.difficulty)]"
-                            style="padding: 2px 8px; border-radius: 10px; font-size: 10px; margin-left: 8px;">
-                            {{ getDifficultyLabel(question.difficulty) }}
-                        </span>
-                        <br>
-                        <small style="color: #666;">
-                            Typ: {{ question.question_type === 'multiple_choice' ? 'Multiple Choice' :
-                                question.question_type === 'true_false' ?
-                                    'Wahr/Falsch' : 'Texteingabe' }} |
-                            Zeitlimit: {{ question.time_limit }}s
-                        </small>
-                        <br v-if="question.explanation">
-                        <small v-if="question.explanation" style="color: #28a745;"><em>Mit Erklärung</em></small>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <button type="button" class="btn btn-secondary" @click="close">Schließen</button>
+        <button type="button" class="btn btn-danger" @click.stop="removeQuestion(q.questionID || q.id)" style="font-size: 12px;">Entfernen</button>
+      </div>
     </div>
 
+    <h3 style="margin-top:20px;">Fragen hinzufügen</h3>
+    <button class="btn btn-secondary" @click="isAllQuestionsCollapsed = !isAllQuestionsCollapsed" style="margin-bottom:10px; font-size:12px;">
+      {{ isAllQuestionsCollapsed ? 'Fragenpool anzeigen' : 'Verbergen' }}
+    </button>
 
+    <div v-show="!isAllQuestionsCollapsed" class="list-container">
+      <div v-if="isLoadingQuestions" style="padding:10px; text-align:center; color:#007bff;">⏳ Lade Fragen...</div>
+      <div v-else-if="!allQuestions || allQuestions.length === 0" style="padding:10px; text-align:center; color:red;">❌ Keine Fragen im Pool gefunden.</div>
+
+      <div v-else v-for="q in allQuestions" :key="q.id" class="card-item">
+        <div style="flex: 1;">
+          <strong>{{ q.text }}</strong>
+          <span class="badge">{{ q.difficulty }}</span>
+        </div>
+
+        <button v-if="!isQuestionInQuiz(q.id)" type="button" class="btn btn-primary" @click.stop="addQuestion(q.id)" style="font-size: 12px;">
+          ➕ Hinzufügen
+        </button>
+      </div>
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; margin-top:20px;">
+      <button class="btn btn-secondary" @click="close">Schließen</button>
+    </div>
+  </div>
 </template>
-
 
 <script>
 import { useSessionStore } from '@/stores/session'
 import axios from 'axios'
-import allQuestions from '../files/questions.json'
 
 export default {
-    props: {
-        modelValue: { type: Boolean, default: false },
-        quizID: {
-            type: Number
-        },
-        quizzes: { type: Array },
-        questions: { type: Array }
-    },
-    emits: ['update:modelValue', 'created'],
-    data() {
-        const session = useSessionStore()
-        return {
-            session,
-            isQuizQuestionsCollapsed: true,
-            isAllQuestionsCollapsed: true,
-            form: {
-                name: '',
-                category: '',
-                description: '',
-                timeLimit: 0,
-                questions: []
-            },
-            quiz: {
-                userID: '',
-                category: '',
-                created_at: '',
-                quizID: '',
-                quiz_description: '',
-                time_limit: '',
-                title: '',
-            },
-            allQuestions
-        }
-    },
-    created() {
-        if (this.quizzes && this.quizID) {
-            const index = this.quizID - 1;
-            this.form.name = this.quizzes[index].title;
-            this.form.category = this.quizzes[index].category;
-            this.form.description = this.quizzes[index].quiz_description;
-            this.form.time_limit = this.quizzes[index].time_limit;
-        }
-    },
-    methods: {
-        close() {
-            this.$emit('update:modelValue', false)
-        },
-        save(){
-            alert("Änderungen im Quiz wurden gespeichert")
-            this.$emit('update:modelValue', false)
-        },
-        getDifficultyLabel(difficulty) {
-            switch ((difficulty || '').toLowerCase()) {
-                case 'easy': return 'Leicht';
-                case 'medium': return 'Mittel';
-                case 'hard': return 'Schwer';
-                default: return difficulty || 'Unbekannt';
-            }
-        },
-        getDifficultyClass(d) {
-            return `difficulty-${(d || 'easy').toLowerCase()}`;
-        },
-        addQuestion(questionID) {
-            console.log("Added Question to Quiz")
-            console.log(questionID)
-        },
-        deleteQuestion(questionID) {
-            console.log("Removed Question from Quiz")
-        },
-        updateQuiz() {
-            console.log("Update Quiz")
-        },
-        enterQuizQuestions(el) {
-            el.style.height = '250px';
-            const height = getComputedStyle(el).height;
-            el.style.height = '0';
-            getComputedStyle(el);
-            setTimeout(() => {
-                el.style.height = height;
-            });
-        },
-        enterAllQuestions(el) {
-            el.style.height = '250px';
-            const height = getComputedStyle(el).height;
-            el.style.height = '0';
-            getComputedStyle(el);
-            setTimeout(() => {
-                el.style.height = height;
-            });
-        },
-
-        leaveQuizQuestions(el) {
-            el.style.height = getComputedStyle(el).height;
-            getComputedStyle(el);
-            setTimeout(() => {
-                el.style.height = '0';
-            });
-        },
-        leaveAllQuestions(el) {
-            el.style.height = getComputedStyle(el).height;
-            getComputedStyle(el);
-            setTimeout(() => {
-                el.style.height = '0';
-            });
-        }
+  props: {
+    modelValue: { type: Boolean },
+    quizID: { type: Number },
+    quizzes: { type: Array, default: () => [] },
+    questions: { type: Array, default: () => [] } // Diese Prop kommt vom Parent
+  },
+  emits: ['update:modelValue', 'updated'],
+  data() {
+    return {
+      session: useSessionStore(),
+      isQuizQuestionsCollapsed: false,
+      isAllQuestionsCollapsed: false,
+      allQuestions: [],
+      isLoadingQuestions: false,
+      form: { name: '', category: '', description: '', timeLimit: 0 }
     }
+  },
+  computed: {
+    quizData() {
+      if (!this.quizzes) return null;
+      return this.quizzes.find(q => Number(q.quizID) === Number(this.quizID)) || null;
+    }
+  },
+  watch: {
+    quizID: {
+      immediate: true,
+      handler() { this.initForm(); }
+    }
+  },
+  mounted() {
+    this.loadAllQuestions();
+    this.initForm();
+  },
+  methods: {
+    initForm() {
+      if (this.quizData) {
+        this.form.name = this.quizData.title;
+        this.form.category = this.quizData.category;
+        this.form.description = this.quizData.quiz_description;
+        this.form.timeLimit = this.quizData.time_limit;
+      }
+    },
+    async loadAllQuestions() {
+      this.isLoadingQuestions = true;
+      try {
+        const res = await axios.get('/api/getQuestions.php');
+        this.allQuestions = Array.isArray(res.data) ? res.data : [];
+      } catch (e) {
+        console.error("Fehler beim Laden aller Fragen:", e);
+        this.allQuestions = [];
+      } finally {
+        this.isLoadingQuestions = false;
+      }
+    },
+    isQuestionInQuiz(poolId) {
+      if (!this.questions || !Array.isArray(this.questions)) return false;
+      // Prüft ob die ID aus dem Pool (poolId) schon in der Liste der zugeordneten Fragen (this.questions) ist
+      return this.questions.some(q => {
+        const qID = q.questionID || q.id;
+        return Number(qID) === Number(poolId);
+      });
+    },
+    async addQuestion(qId) {
+      try {
+        await axios.post('/api/assignQuestionToQuiz.php', {
+          quizID: this.quizID,
+          questionID: qId
+        });
+        // WICHTIG: Parent sagen "Lade neu!", damit die Liste oben und der Button sich updaten
+        this.$emit('updated');
+      } catch (e) { console.error(e); }
+    },
+    async removeQuestion(qId) {
+      try {
+        await axios.post('/api/removeQuestionFromQuiz.php', {
+          quizID: this.quizID,
+          questionID: qId
+        });
+        this.$emit('updated');
+      } catch (e) { console.error(e); }
+    },
+    async saveQuizMetadata() {
+      try {
+        await axios.post('/api/updateQuiz.php', {
+          quizID: this.quizID,
+          title: this.form.name,
+          category: this.form.category,
+          description: this.form.description,
+          timeLimit: this.form.timeLimit
+        });
+        alert("Gespeichert!");
+        this.$emit('updated');
+      } catch (e) { console.error(e); }
+    },
+    close() { this.$emit('update:modelValue', false); }
+  }
 }
 </script>
 
 <style scoped>
-.collapse-enter-active,
-.collapse-leave-active {
-    transition: height 0.3s ease-in-out;
-    overflow: hidden;
+.list-container {
+  max-height: 250px; overflow-y: auto; border: 1px solid #eee; padding: 8px; border-radius: 4px;
+}
+.card-item {
+  display: flex; justify-content: space-between; align-items: center;
+  background: #fff; border: 1px solid #ddd; padding: 8px; margin-bottom: 6px; border-radius: 4px;
+}
+.badge {
+  background: #eee; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-left: 5px;
 }
 </style>

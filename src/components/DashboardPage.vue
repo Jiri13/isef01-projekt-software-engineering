@@ -36,6 +36,14 @@
         <div id="joinError" style="display:none;" class="alert alert-error"></div>
       </div>
 
+      <div v-if="isShowingEditRoomModal" class="modal">
+        <edit-room-modal
+            v-model="isShowingEditRoomModal"
+            :roomToEdit="selectedRoomToEdit"
+            @updated="fetchMyRooms"
+        />
+      </div>
+
       <div class="card">
         <h3 style="margin-bottom:16px;">📈 Deine Statistiken</h3>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;text-align:center;">
@@ -53,9 +61,8 @@
           </div>
           <div>
             <div style="font-size:24px;font-weight:700;color:#007bff;">
-              {{ getRank() }}
-            </div>
-            <div style="color:#666;">Rang</div>
+              #{{ userStats.rank }} </div>
+            <div style="color:#666;">Globaler Rang</div>
           </div>
         </div>
       </div>
@@ -72,19 +79,18 @@
         <button class="btn btn-primary" @click.prevent="showCreateQuizRoomModal()">🚀 Ersten Raum erstellen</button>
       </div>
 
-      <!-- NUR diese Liste behalten -->
       <div v-for="room in myRooms" :key="room.id" class="card"
-        style="border:2px solid #007bff;margin-bottom:16px;position:relative;">
+           style="border:2px solid #007bff;margin-bottom:16px;position:relative;">
+
         <div style="cursor:pointer;" @click.prevent="enterRoom(room.id)">
           <div style="display:flex;justify-content:space-between;margin-bottom:12px;align-items:flex-start;">
             <div>
               <h3>
                 {{ room.name }}
-                <small style="font-weight:normal;color:#666;">Ersteller: {{ getUserNameFromHostID(room.hostID)
-                  }}</small>
+                <small style="font-weight:normal;color:#666;">Ersteller: {{ getUserNameFromHostID(room.hostID) }}</small>
               </h3>
               <span :class="`difficulty-${room.difficulty}`"
-                style="padding:4px 8px;border-radius:12px;font-size:11px;margin-right:8px;">
+                    style="padding:4px 8px;border-radius:12px;font-size:11px;margin-right:8px;">
                 {{ getDifficultyText(room.difficulty) }}
               </span>
             </div>
@@ -97,14 +103,32 @@
           <p><strong>❓ Fragen:</strong> {{ room.questions.length }}</p>
         </div>
 
-        <button v-if="room.hostID === sessionStore.userID" @click.prevent="deleteRoom(room.id)" class="btn btn-danger"
-          style="position:absolute;bottom:12px;right:12px;padding:8px 12px;font-size:14px;">
-          🗑️ Raum löschen
-        </button>
-        <button v-if="room.hostID != sessionStore.userID" @click.prevent="leaveRoom(room.id)" class="btn btn-danger"
-          style="position:absolute;bottom:12px;right:12px;padding:8px 12px;font-size:14px;">
-          🚪Raum verlassen
-        </button>
+        <div style="position:absolute; bottom:12px; right:12px; display:flex; gap:8px;">
+
+          <button
+              v-if="Number(room.hostID) === Number(sessionStore.userID)"
+              class="btn btn-secondary"
+              @click.stop="openEditRoomModal(room)"
+              style="padding:8px 12px; font-size:14px;">
+            ⚙️ Bearbeiten
+          </button>
+
+          <button
+              v-if="Number(room.hostID) === Number(sessionStore.userID)"
+              @click.stop="deleteRoom(room.id)"
+              class="btn btn-danger"
+              style="padding:8px 12px; font-size:14px;">
+            🗑️ Löschen
+          </button>
+
+          <button
+              v-if="Number(room.hostID) !== Number(sessionStore.userID)"
+              @click.stop="leaveRoom(room.id)"
+              class="btn btn-danger"
+              style="padding:8px 12px; font-size:14px;">
+            🚪 Verlassen
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -117,6 +141,7 @@ import DashboardNavbar from './DashboardNavbar.vue'
 import SingleplayerDifficultyModal from './SingleplayerDifficultyModal.vue'
 import CreateQuizRoomModal from './CreateQuizRoomModal.vue'
 import StatisticsModal from './StatisticsModal.vue'
+import EditRoomModal from './EditRoomModal.vue';
 import users from '../files/users.json'   // <DATENBANK>
 import axios from 'axios'
 
@@ -125,6 +150,7 @@ export default {
     DashboardNavbar,
     SingleplayerDifficultyModal,
     CreateQuizRoomModal,
+    EditRoomModal,
     StatisticsModal
   },
 
@@ -137,6 +163,8 @@ export default {
       isShowingSinglePlayerModal: false,
       isShowingCreateQuizRoomModal: false,
       isShowingStatisticsModal: false,
+      isShowingEditRoomModal: false,
+      selectedRoomToEdit: null,
       joinCode: '',
       loadingRooms: false,
       roomsError: null,
@@ -144,7 +172,8 @@ export default {
         correctAnswers: 0,
         wrongAnswers: 0,
         totalAnswers: 0,
-        gamesPlayed: 0
+        gamesPlayed: 0,
+        rank: '-'
       }
     }
   },
@@ -235,11 +264,12 @@ export default {
           correctAnswers: data?.correctAnswers ?? 0,
           wrongAnswers:  data?.wrongAnswers  ?? 0,
           totalAnswers:  data?.totalAnswers  ?? 0,
-          gamesPlayed:   data?.gamesPlayed   ?? 0
+          gamesPlayed:   data?.gamesPlayed   ?? 0,
+          rank:          data?.rank          ?? '-'
         }
       } catch (e) {
         console.error('Fehler beim Laden der User-Statistiken', e)
-        this.userStats = { correctAnswers: 0, wrongAnswers: 0, totalAnswers: 0, gamesPlayed: 0 }
+        this.userStats = { correctAnswers: 0, wrongAnswers: 0, totalAnswers: 0, gamesPlayed: 0, rank: '-' }
       }
     },
     async onRoomCreated(room) {
@@ -260,6 +290,10 @@ export default {
       this.isShowingCreateQuizRoomModal = true
       console.log('showCreateQuizRoomModal Called')
     },
+    openEditRoomModal(room) {
+      this.selectedRoomToEdit = room;
+      this.isShowingEditRoomModal = true;
+    },
     showQuestionPage() {
       router.push('/questions')
     },
@@ -278,12 +312,16 @@ export default {
         return {
           correctAnswers: this.userStats.correctAnswers ?? 0,
           wrongAnswers:  this.userStats.wrongAnswers  ?? 0,
-          gamesPlayed: this.userStats.gamesPlayed ?? 0
+          gamesPlayed: this.userStats.gamesPlayed ?? 0,
+          answeredQuestions: this.userStats.totalAnswers ?? 0
         }
       }
     },
     getUserCorrectRatio(){
-      return this.getUserStatsFromID(this.sessionStore.userID).correctAnswers / (this.getUserStatsFromID(this.sessionStore.userID).answeredQuestions || 1) * 100;
+      const stats = this.getUserStatsFromID(this.sessionStore.userID);
+      // Fallback auf 0, um NaN zu vermeiden
+      if (!stats || !stats.answeredQuestions) return 0;
+      return (stats.correctAnswers / stats.answeredQuestions) * 100;
     },
     getDifficultyText(difficulty) {
       switch (difficulty) {

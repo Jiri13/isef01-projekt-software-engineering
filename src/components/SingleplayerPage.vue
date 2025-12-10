@@ -106,7 +106,9 @@
 import SingleplayerNavbar from './SingleplayerNavbar.vue'
 import router from '@/router'
 import { useSingleplayerStore } from '@/stores/singleplayer'
+import { useSessionStore } from '@/stores/session'
 import SingleplayerDifficultyModal from './SingleplayerDifficultyModal.vue'
+import axios from 'axios';
 
 export default {
   components: {
@@ -115,6 +117,8 @@ export default {
   },
   data() {
     const singleplayerStore = useSingleplayerStore()
+    const sessionStore = useSessionStore()
+
     const ButtonState = Object.freeze({
       SUBMIT: { text: '✅ Antwort bestätigen' },
       NEXT: { text: '➡️ Nächste Frage' },
@@ -123,7 +127,8 @@ export default {
 
     return {
       singleplayerStore,
-      selectedOptionId: null,      // <— wir speichern die optionId
+      sessionStore,
+      selectedOptionId: null,
       isAnswerSubmitted: false,
       showResult: false,
       ButtonState,
@@ -207,16 +212,30 @@ export default {
       if (this.isAnswerSubmitted) return
       this.selectedOptionId = option.optionId
     },
-    submitAnswer() {
+    async submitAnswer() {
       const q = this.currentQuestion
       if (!q) return
 
-      // 1. Submit
       if (!this.isAnswerSubmitted) {
         this.isAnswerSubmitted = true
         const chosen = q.options.find(o => o.optionId === this.selectedOptionId)
-        if (chosen?.isCorrect) {
+
+        const isCorrect = chosen?.isCorrect ? true : false;
+
+        if (isCorrect) {
           this.singleplayerStore.score++
+        }
+
+        // Speichern in DB (Statistics Tabelle)
+        try {
+          await axios.post('/api/saveSingleAnswer.php', {
+            userID: this.sessionStore.userID,
+            questionID: q.questionId,
+            optionID: this.selectedOptionId,
+            isCorrect: isCorrect
+          });
+        } catch (e) {
+          console.error("Fehler beim Speichern der Statistik:", e);
         }
         return
       }
@@ -236,10 +255,6 @@ export default {
     }
   },
   mounted() {
-    console.log('Current Question:', this.currentQuestion)
-    console.log('Explanation:', this.currentQuestion?.explanation)
-    console.log('Type:', typeof (this.currentQuestion?.explanation))
-    console.log('QuestionType:', this.currentQuestion?.type)
   }
 }
 </script>
