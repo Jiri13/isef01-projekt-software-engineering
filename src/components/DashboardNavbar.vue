@@ -1,44 +1,53 @@
 <template>
-    <nav class="navbar">
-        <div class="container">
-            <div class="navbar-content">
-                <div @click.prevent="returnToDashboard()" class="navbar-brand">🎯 IU Quiz</div>
-                <div class="nav-links">
-                    <span v-if="sessionStore.userID && usersData[sessionStore.userID - 1]">👋 {{
-                        usersData[sessionStore.userID - 1].first_name }}</span>
-                    <button class="btn btn-secondary" @click.prevent="logout()">Abmelden</button>
-                </div>
-            </div>
+  <nav class="navbar">
+    <div class="container">
+      <div class="navbar-content">
+        <div @click.prevent="returnToDashboard" class="navbar-brand">🎯 IU Quiz</div>
+        <div class="nav-links">
+          <span v-if="sessionStore.firstName">👋 {{ sessionStore.firstName }}</span>
+          <button class="btn btn-secondary" @click.prevent="logout">Abmelden</button>
         </div>
-    </nav>
+      </div>
+    </div>
+  </nav>
 </template>
 
 <script>
-import { useSessionStore } from '@/stores/session'
-import usersData from '../files/users.json'
-import router from '@/router/index'
+import { useSessionStore } from "@/stores/session";
+import router from "@/router/index";
+import axios from "axios";
 
 export default {
-    data() {
-        const sessionStore = useSessionStore()
+  data() {
+    const sessionStore = useSessionStore();
 
-        return {
-            sessionStore,
-            usersData
-        }
+    return {
+      sessionStore,
+    };
+  },
+  methods: {
+    async logout() {
+      try {
+        await axios.post("/api/logout.php");
+      } catch (e) {
+        console.error("Logout error:", e);
+      }
+
+      this.sessionStore.loggedIn = false;
+      this.sessionStore.userID = null;
+      this.sessionStore.userRole = null;
+      this.sessionStore.firstName = null;
+      this.sessionStore.lastName = null;
+
+      router.push("/");
     },
-    methods: {
-        logout() {
-            this.sessionStore.loggedIn = false;
-            this.sessionStore.userID = null;
-            router.push('/')
-        },
-        returnToDashboard() {
-            router.push('/');
-        }
-    }
-}
+    returnToDashboard() {
+      router.push("/");
+    },
+  },
+};
 </script>
+
 
 <style scoped>
 .container {
