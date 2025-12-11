@@ -37,10 +37,8 @@ try {
     // 2. IDs aller geladenen Fragen sammeln
     $questionIDs = array_column($questions, 'id');
 
-    // Sicherstellen, dass wir Integer für das IN-Statement haben
+    // 3. Alle Optionen zu diesen Fragen in EINER Abfrage laden
     $idsForQuery = implode(',', array_map('intval', $questionIDs));
-
-    // 3. Alle Optionen für diese Fragen in EINER Abfrage laden
     $optStmt = $pdo->query("
         SELECT
             optionID      AS id,
@@ -54,38 +52,47 @@ try {
     $allOptions = $optStmt->fetchAll(PDO::FETCH_ASSOC);
 
     // 4. Optionen den Fragen zuordnen (im PHP-Speicher)
-    // Wir gruppieren die Optionen zuerst nach questionID
     $optionsByQuestion = [];
     foreach ($allOptions as $opt) {
         $qID = $opt['questionID'];
-        // Wir entfernen questionID aus dem Option-Objekt selbst, da es redundant ist
-        unset($opt['questionID']);
+        unset($opt['questionID']); // redundant im JSON
 
-        // Datentypen anpassen (für sauberes JSON)
+        // isCorrect als int
         $opt['isCorrect'] = (int)$opt['isCorrect'];
 
         $optionsByQuestion[$qID][] = $opt;
     }
 
-    // Optionen in das Fragen-Array einfügen
+    // 5. Optionen + correctAnswer in das Fragen-Array einfügen
     foreach ($questions as &$q) {
-        $q['id'] = (int)$q['id'];
+        $q['id']        = (int)$q['id'];
         $q['timeLimit'] = (int)$q['timeLimit'];
-        $q['quizID'] = $q['quizID'] ? (int)$q['quizID'] : null;
-        $q['userID'] = (int)$q['userID'];
+        $q['quizID']    = $q['quizID'] ? (int)$q['quizID'] : null;
+        $q['userID']    = (int)$q['userID'];
 
-        // Optionen zuweisen oder leeres Array
-        $q['options'] = $optionsByQuestion[$q['id']] ?? [];
+        $qOptions = $optionsByQuestion[$q['id']] ?? [];
+        $q['options'] = $qOptions;
 
-        // CorrectAnswer Index berechnen (für Frontend-Komfort)
         $correctIndex = -1;
-        foreach ($q['options'] as $idx => $opt) {
+        $correctText  = '';
+
+        foreach ($qOptions as $idx => $opt) {
             if ($opt['isCorrect'] === 1) {
                 $correctIndex = $idx;
-                break; // Erste richtige Antwort reicht für Index
+                $correctText  = $opt['text'];
+                break; // erste richtige Antwort reicht
             }
         }
-        $q['correctAnswer'] = $correctIndex;
+
+        $type = strtolower((string)$q['type']);
+
+        if ($type === 'text_input') {
+            // Für Texteingabe geben wir den TEXT der richtigen Antwort zurück
+            $q['correctAnswer'] = $correctText;
+        } else {
+            // Für Multiple Choice / True-False geben wir wie bisher den Index zurück
+            $q['correctAnswer'] = $correctIndex;
+        }
     }
     unset($q); // Referenz aufheben
 

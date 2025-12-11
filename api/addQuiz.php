@@ -1,5 +1,4 @@
 <?php
-//Marie
 // api/addQuiz.php
 // Legt ein neues Quiz an und ordnet (optional) vorhandene Fragen über die
 // Beziehungstabelle `quizquestion` zu.
@@ -17,10 +16,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require __DIR__ . '/dbConnection.php';
 
 // JSON-Body lesen
-$input = json_decode(file_get_contents('php://input'), true);
-if (!$input) {
+$rawBody = file_get_contents('php://input');
+$input   = json_decode($rawBody, true);
+
+if (!is_array($input)) {
     http_response_code(400);
-    echo json_encode(['error' => 'Invalid or missing JSON body']);
+    echo json_encode([
+        'ok'    => false,
+        'error' => 'Invalid or missing JSON body',
+        'body'  => $rawBody
+    ]);
     exit;
 }
 
@@ -33,7 +38,12 @@ Erwartet vom Frontend (CreateQuizModal.vue -> createQuiz()):
   "category": "Modul/Fach",
   "description": "Beschreibung",
   "timeLimit": 30,          // optional (Integer oder null)
-  "questionIDs": [3, 8, 11] // optional: ausgewählte vorhandene Fragen
+
+  // ENTWEDER so:
+  "questionIDs": [3, 8, 11]
+
+  // ODER (aktuelles Frontend):
+  "questions": [3, 8, 11]
 }
 */
 
@@ -41,18 +51,40 @@ $title       = trim((string)($input['title'] ?? ''));
 $category    = trim((string)($input['category'] ?? ''));
 $description = trim((string)($input['description'] ?? ''));
 $userID      = isset($input['userID']) ? (int)$input['userID'] : 0;
+
 $timeLimit   = (isset($input['timeLimit']) && $input['timeLimit'] !== '')
     ? (int)$input['timeLimit']
     : null;
-$questionIDs = (isset($input['questionIDs']) && is_array($input['questionIDs']))
-    ? $input['questionIDs']
-    : [];
+
+// Frage-IDs aus dem Frontend holen:
+// bevorzugt "questionIDs", Fallback auf "questions"
+$questionIDsRaw = $input['questionIDs'] ?? $input['questions'] ?? [];
+
+// Sicherstellen, dass es wirklich ein Array ist
+if (!is_array($questionIDsRaw)) {
+    $questionIDsRaw = [];
+}
+
+// Nur gültige Integer-IDs > 0 übernehmen
+$questionIDs = array_values(
+    array_filter(
+        array_map('intval', $questionIDsRaw),
+        fn($v) => $v > 0
+    )
+);
 
 // Pflichtfelder prüfen
 if ($title === '' || $category === '' || $description === '' || $userID <= 0) {
     http_response_code(400);
     echo json_encode([
-        'error' => 'title, category, description and userID are required'
+        'ok'    => false,
+        'error' => 'title, category, description and userID are required',
+        'data'  => [
+            'title'       => $title,
+            'category'    => $category,
+            'description' => $description,
+            'userID'      => $userID
+        ]
     ]);
     exit;
 }
@@ -80,29 +112,18 @@ try {
 
     // Ausgewählte Fragen diesem Quiz zuordnen (wenn angegeben)
     if (!empty($questionIDs)) {
-        // Nur gültige Integer-IDs > 0
-        $cleanIDs = array_values(
-            array_filter(
-                array_map('intval', $questionIDs),
-                fn($v) => $v > 0
-            )
-        );
+        $ins = $pdo->prepare("
+            INSERT INTO quizquestion (quizID, questionID, sort_order)
+            VALUES (:quizID, :questionID, :sort_order)
+        ");
 
-        if (!empty($cleanIDs)) {
-            // vorbereitete Query für Beziehungstabelle quizquestion
-            $ins = $pdo->prepare("
-                INSERT INTO quizquestion (quizID, questionID, sort_order)
-                VALUES (:quizID, :questionID, :sort_order)
-            ");
-
-            $pos = 1;
-            foreach ($cleanIDs as $qid) {
-                $ins->execute([
-                    ':quizID'     => $quizID,   // 👈 hier wird quizID explizit gesetzt
-                    ':questionID' => $qid,
-                    ':sort_order' => $pos++    // 1, 2, 3, ... – Reihenfolge im Quiz
-                ]);
-            }
+        $pos = 1;
+        foreach ($questionIDs as $qid) {
+            $ins->execute([
+                ':quizID'     => $quizID,
+                ':questionID' => $qid,
+                ':sort_order' => $pos++
+            ]);
         }
     }
 
@@ -119,6 +140,7 @@ try {
     }
     http_response_code(500);
     echo json_encode([
+        'ok'      => false,
         'error'   => 'Insert failed',
         'details' => $e->getMessage()
     ]);

@@ -27,7 +27,7 @@ if (!$input) {
    "quizID": 1,
    "userID": 5,
    "text": "Fragetext",
-   "type": "multiple_choice" | "text_input",
+   "type": "multiple_choice" | "text_input" | "true_false",
    "options": [ {"text":"A","isCorrect":false}, {"text":"B","isCorrect":true} ],
    "difficulty": "easy" | "medium" | "hard",
    "explanation": "optionale Erklärung",
@@ -44,7 +44,6 @@ $difficulty  = strtolower(trim((string)($input['difficulty'] ?? 'medium')));
 $explanation = trim((string)($input['explanation'] ?? ''));
 $timeLimit   = isset($input['timeLimit']) ? (int)$input['timeLimit'] : 30;
 $options     = isset($input['options']) && is_array($input['options']) ? $input['options'] : [];
-
 
 // Pflichtfelder prüfen
 if ($quizID <= 0 || $userID <= 0 || $questionTxt === '') {
@@ -76,8 +75,11 @@ try {
 
     $questionID = (int)$pdo->lastInsertId();
 
-    // Optionen nur speichern, wenn Typ Multiple Choice und Optionen vorhanden
-    if ($type === 'multiple_choice' && !empty($options)) {
+    //  Optionen jetzt für ALLE Fragetypen speichern, sofern vorhanden
+    // multiple_choice  -> mehrere Optionen
+    // true_false       -> 2 Optionen (Wahr/Falsch)
+    // text_input       -> 1 Option = richtige Antwort
+    if (!empty($options)) {
         $optStmt = $pdo->prepare("
             INSERT INTO question_option (questionID, option_text, is_correct)
             VALUES (:questionID, :text, :isCorrect)

@@ -232,25 +232,86 @@ export default {
         async saveQuestion() {
             if (!this.selectedQuestion) return;
             console.log('saveQuestion called for id=', this.selectedQuestion.id);
-            // basic validation
+
+            // Basis-Validierung: Fragetext
             if (!this.selectedQuestion.text || this.selectedQuestion.text.trim() === '') {
                 alert('Bitte Fragetext eingeben.');
                 return;
             }
 
-            // If multiple_choice, ensure at least 2 options
+            let optionsPayload = [];
+
+            // MULTIPLE CHOICE
             if (this.selectedQuestion.type === 'multiple_choice') {
-                const opts = (this.selectedQuestion.options || []).filter(o => o && o.trim() !== '');
+                const opts = (this.selectedQuestion.options || [])
+                    .map(o => (typeof o === 'string' ? o : (o && o.text) || ''))
+                    .map(o => o.trim())
+                    .filter(o => o !== '');
+
                 if (opts.length < 2) {
                     alert('Mindestens zwei Antwortoptionen erforderlich.');
                     return;
                 }
-                // sanitize options
+
                 this.selectedQuestion.options = opts;
-                if (typeof this.selectedQuestion.correctAnswer !== 'number' || this.selectedQuestion.correctAnswer >= opts.length) {
+
+                if (
+                    typeof this.selectedQuestion.correctAnswer !== 'number' ||
+                    this.selectedQuestion.correctAnswer < 0 ||
+                    this.selectedQuestion.correctAnswer >= opts.length
+                ) {
                     this.selectedQuestion.correctAnswer = 0;
                 }
+
+                optionsPayload = this.selectedQuestion.options.map((opt, idx) => ({
+                    text: opt,
+                    isCorrect: idx === this.selectedQuestion.correctAnswer,
+                }));
             }
+
+            // TRUE / FALSE
+            else if (this.selectedQuestion.type === 'true_false') {
+                let opts = (this.selectedQuestion.options || [])
+                    .map(o => (typeof o === 'string' ? o : (o && o.text) || ''))
+                    .map(o => o.trim())
+                    .filter(o => o !== '');
+
+                // Falls irgendwas schief ist, auf Standard zurückfallen
+                if (opts.length !== 2) {
+                    opts = ['Wahr', 'Falsch'];
+                }
+
+                this.selectedQuestion.options = opts;
+
+                if (
+                    typeof this.selectedQuestion.correctAnswer !== 'number' ||
+                    this.selectedQuestion.correctAnswer < 0 ||
+                    this.selectedQuestion.correctAnswer >= opts.length
+                ) {
+                    this.selectedQuestion.correctAnswer = 0;
+                }
+
+                optionsPayload = this.selectedQuestion.options.map((opt, idx) => ({
+                    text: opt,
+                    isCorrect: idx === this.selectedQuestion.correctAnswer,
+                }));
+            }
+
+            // TEXT INPUT
+            else if (this.selectedQuestion.type === 'text_input') {
+                const txt = (this.selectedQuestion.correctAnswerText || '').trim();
+                if (!txt) {
+                    alert('Bitte eine richtige Antwort (Text) eingeben.');
+                    return;
+                }
+
+                // Für Textfragen schicken wir EINE Option = richtige Antwort
+                optionsPayload = [{
+                    text: txt,
+                    isCorrect: true,
+                }];
+            }
+
             try {
                 const payload = {
                     questionID: this.selectedQuestion.id,
@@ -258,20 +319,14 @@ export default {
                     userID: this.selectedQuestion.userID || 1,
                     text: this.selectedQuestion.text,
                     type: this.selectedQuestion.type,
-                    options: Array.isArray(this.selectedQuestion.options)
-                        ? this.selectedQuestion.options.map((opt, idx) => ({
-                            text: typeof opt === 'string' ? opt : opt.text,
-                            isCorrect: idx === this.selectedQuestion.correctAnswer,
-                        }))
-                        : [],
+                    options: optionsPayload,
                     difficulty: this.selectedQuestion.difficulty,
                     explanation: this.selectedQuestion.explanation,
                     timeLimit: this.selectedQuestion.timeLimit,
                 };
 
                 let response;
-
-                // Entscheiden: Neue Frage oder vorhandene aktualisieren?
+                // Neue Frage oder Update?
                 if (!this.selectedQuestion.id || String(this.selectedQuestion.id).startsWith('temp')) {
                     response = await axios.post('/api/addQuestion.php', payload);
                 } else {
@@ -282,45 +337,29 @@ export default {
 
                 if (data && data.ok) {
                     if (!this.selectedQuestion.id || String(this.selectedQuestion.id).startsWith('temp')) {
+                        // Backend-ID übernehmen
                         this.selectedQuestion.id = data.questionID;
-                        this.questions.push(JSON.parse(JSON.stringify(this.selectedQuestion)));
+                        this.questions.unshift(JSON.parse(JSON.stringify(this.selectedQuestion)));
                     } else {
                         const idx = this.questions.findIndex(q => q.id === this.selectedQuestion.id);
                         if (idx !== -1) {
-                            this.questions[idx] = JSON.parse(JSON.stringify(this.selectedQuestion));
+                            this.questions.splice(idx, 1, JSON.parse(JSON.stringify(this.selectedQuestion)));
                         }
                     }
                     alert('Frage erfolgreich gespeichert.');
                 } else {
-                    // If API returned an error, fall back to local save so user can continue working offline
-                    console.warn('API returned error while saving question, falling back to local update', data && data.error);
-                    if (!this.selectedQuestion.id || String(this.selectedQuestion.id).startsWith('temp')) {
-                        // assign a stable local id
-                        this.selectedQuestion.id = Date.now();
-                        this.questions.push(JSON.parse(JSON.stringify(this.selectedQuestion)));
-                    } else {
-                        const idx = this.questions.findIndex(q => q.id === this.selectedQuestion.id);
-                        if (idx !== -1) this.questions[idx] = JSON.parse(JSON.stringify(this.selectedQuestion));
-                    }
-                    alert('Frage lokal gespeichert (Backend-Fehler).');
+                    console.warn('API-Fehler bei saveQuestion:', data);
+                    alert('Fehler beim Speichern der Frage (API-Fehler).');
                 }
-
             } catch (err) {
-                // Backend unreachable — fallback to local update so the app stays usable offline
-                console.warn('Fehler bei saveQuestion (Backend wahrscheinlich nicht erreichbar), führe lokalen Speicher durch:', err && err.message ? err.message : err);
-                if (!this.selectedQuestion.id || String(this.selectedQuestion.id).startsWith('temp')) {
-                    this.selectedQuestion.id = Date.now();
-                    this.questions.push(JSON.parse(JSON.stringify(this.selectedQuestion)));
-                } else {
-                    const idx = this.questions.findIndex(q => q.id === this.selectedQuestion.id);
-                    if (idx !== -1) this.questions[idx] = JSON.parse(JSON.stringify(this.selectedQuestion));
-                }
-                alert('Frage lokal gespeichert (kein Server).');
+                console.error('Fehler bei saveQuestion:', err);
+                alert('Fehler beim Speichern der Frage (Netzwerk/Server).');
             }
 
             this.closeModal();
             this.$emit('question-updated', this.selectedQuestion);
         },
+
 
         async deleteQuestion(id) {
             if (!confirm('Sind Sie sicher, dass Sie diese Frage löschen möchten?')) return;

@@ -65,8 +65,8 @@ try {
     $pdo->prepare("DELETE FROM question_option WHERE questionID = :qid")
         ->execute([':qid' => $questionID]);
 
-    // Neue Optionen einfügen (falls Multiple Choice)
-    if ($type === 'multiple_choice' && !empty($options)) {
+    //  Neue Optionen für ALLE Fragetypen einfügen, sofern vorhanden
+    if (!empty($options)) {
         $optStmt = $pdo->prepare("
             INSERT INTO question_option (questionID, option_text, is_correct)
             VALUES (:questionID, :text, :isCorrect)

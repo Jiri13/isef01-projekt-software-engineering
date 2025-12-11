@@ -7,8 +7,8 @@
       <div style="margin-bottom: 24px;">
         <div style="background: #f8f9fa; height: 8px; border-radius: 4px; margin-bottom: 16px;">
           <div
-              style="height: 100%; border-radius: 4px; transition: width 0.3s ease; background: #007bff;"
-              :style="{ width: progressBarWidth }"
+            style="height: 100%; border-radius: 4px; transition: width 0.3s ease; background: #007bff;"
+            :style="{ width: progressBarWidth }"
           />
         </div>
         <div style="text-align: center; color: #666; font-size: 14px;">
@@ -22,37 +22,62 @@
         {{ currentQuestion?.questionText ?? '—' }}
       </div>
 
-      <!-- Antwortoptionen -->
-      <div
+      <!-- MULTIPLE_CHOICE / TRUE_FALSE -->
+      <template v-if="!isTextInputQuestion">
+        <div
           id="singlePlayerOptions"
           :class="{ 'disabled-options': isAnswerSubmitted }"
           v-for="(option, index) in currentQuestion?.options || []"
-          :key="option.optionId"
-      >
-        <div
+          :key="option.optionId ?? index"
+        >
+          <div
             class="answer-option"
             :class="getOptionClasses(option)"
             @click.prevent="select(option)"
-        >
-          {{ option.optionText }}
+          >
+            {{ option.optionText }}
+          </div>
         </div>
-      </div>
+      </template>
+
+      <!-- TEXT_INPUT -->
+      <template v-else>
+        <div class="form-group">
+          <label for="textInputAnswer" class="form-label">Ihre Antwort:</label>
+          <input
+            id="textInputAnswer"
+            v-model="textInputAnswer"
+            type="text"
+            class="form-control"
+            :readonly="isAnswerSubmitted"
+            placeholder="Antwort eingeben …"
+          />
+        </div>
+
+        <div
+          v-if="isAnswerSubmitted && textInputCorrectAnswer"
+          class="singleplayer-explanation"
+          style="margin-top: 16px;"
+        >
+          Richtige Antwort: <strong>{{ textInputCorrectAnswer }}</strong>
+        </div>
+      </template>
 
       <!-- Erklärung -->
       <div
-          id="singleplayerExplanation"
-          class="singleplayer-explanation"
-          v-if="isAnswerSubmitted && currentQuestionHasExplanation"
+        id="singleplayerExplanation"
+        class="singleplayer-explanation"
+        v-if="isAnswerSubmitted && currentQuestionHasExplanation"
       >
         {{ currentQuestion.explanation }}
       </div>
 
       <button
-          id="submitSinglePlayerBtn"
-          class="btn btn-primary"
-          @click.prevent="submitAnswer()"
-          :disabled="isSubmitDisabled"
-          style="width: 100%; margin-top: 24px; font-size: 16px; padding: 16px;"
+        id="submitSinglePlayerBtn"
+        class="btn btn-primary"
+        @click.prevent="submitAnswer()"
+        :disabled="isSubmitDisabled"
+        style="width: 100%; margin-top: 24px; font-size: 16px; padding: 16px;"
       >
         {{ buttonText }}
       </button>
@@ -69,10 +94,9 @@
     <div class="card" style="text-align: center; padding: 48px;">
       <h1 :style="ratingColor">{{ rating }}</h1>
 
-      <!-- Hinweis: Diese Badge hatte vorher Template-Literals in Vue-HTML. Hier simple statische Anzeige. -->
       <div
-          class="badge"
-          style="padding: 8px 16px; border-radius: 20px; font-size: 16px; margin-bottom: 24px;"
+        class="badge"
+        style="padding: 8px 16px; border-radius: 20px; font-size: 16px; margin-bottom: 24px;"
       >
         Schwierigkeit: {{ currentQuestion?.difficulty ?? '—' }}
       </div>
@@ -97,7 +121,7 @@
 
   <Teleport to="body">
     <div v-if="isShowingSinglePlayerModal" class="modal">
-      <singleplayer-difficulty-modal v-model="isShowingSinglePlayerModal" />
+      <SingleplayerDifficultyModal v-model="isShowingSinglePlayerModal" />
     </div>
   </Teleport>
 </template>
@@ -108,7 +132,7 @@ import router from '@/router'
 import { useSingleplayerStore } from '@/stores/singleplayer'
 import { useSessionStore } from '@/stores/session'
 import SingleplayerDifficultyModal from './SingleplayerDifficultyModal.vue'
-import axios from 'axios';
+import axios from 'axios'
 
 export default {
   components: {
@@ -132,7 +156,9 @@ export default {
       isAnswerSubmitted: false,
       showResult: false,
       ButtonState,
-      isShowingSinglePlayerModal: false
+      isShowingSinglePlayerModal: false,
+      textInputAnswer: '',
+      textInputCorrectAnswer: ''
     }
   },
   computed: {
@@ -150,11 +176,20 @@ export default {
       const exp = this.currentQuestion?.explanation
       return typeof exp === 'string' && exp.trim() !== ''
     },
+    isTextInputQuestion() {
+      const type = (this.currentQuestion?.questionType || '').toLowerCase()
+      return type === 'text_input'
+    },
     isSubmitDisabled() {
-      return this.selectedOptionId == null && !this.isAnswerSubmitted
+      if (this.isAnswerSubmitted) return false
+      if (this.isTextInputQuestion) {
+        return !this.textInputAnswer || this.textInputAnswer.trim() === ''
+      }
+      return this.selectedOptionId == null
     },
     isLastQuestion() {
-      return (this.singleplayerStore.currentQuestionIndex ?? 0) === (this.singleplayerStore.questions.length - 1)
+      return (this.singleplayerStore.currentQuestionIndex ?? 0) ===
+        (this.singleplayerStore.questions.length - 1)
     },
     buttonText() {
       if (!this.isAnswerSubmitted) return this.ButtonState.SUBMIT.text
@@ -173,9 +208,6 @@ export default {
       if (percentage >= 70) return { color: '#17a2b8', marginBottom: '32px' }
       if (percentage >= 50) return { color: '#ffc107', marginBottom: '32px' }
       return { color: '#dc3545', marginBottom: '32px' }
-    },
-    explanationText() {
-      return String(this.currentQuestion?.explanation ?? '')
     }
   },
   methods: {
@@ -202,50 +234,82 @@ export default {
       this.singleplayerStore.quizID = null
       this.singleplayerStore.quiz = null
       this.singleplayerStore.questions = []
-      this.singleplayerStore.currentQuestionIndex = 0  // <— nie null lassen
+      this.singleplayerStore.currentQuestionIndex = 0
       this.singleplayerStore.score = 0
       this.singleplayerStore.finished = false
       this.selectedOptionId = null
       this.isAnswerSubmitted = false
+      this.textInputAnswer = ''
+      this.textInputCorrectAnswer = ''
     },
     select(option) {
       if (this.isAnswerSubmitted) return
+      if (this.isTextInputQuestion) return
       this.selectedOptionId = option.optionId
     },
     async submitAnswer() {
       const q = this.currentQuestion
       if (!q) return
 
+      // 1. Antwort auswerten
       if (!this.isAnswerSubmitted) {
         this.isAnswerSubmitted = true
-        const chosen = q.options.find(o => o.optionId === this.selectedOptionId)
+        let isCorrect = false
 
-        const isCorrect = chosen?.isCorrect ? true : false;
+        if (this.isTextInputQuestion) {
+          // TEXT_INPUT: Text mit richtiger Option vergleichen
+          const correctOpt = Array.isArray(q.options)
+            ? q.options.find(o => o.isCorrect)
+            : null
+          const correctText = (correctOpt?.optionText || '').trim()
+          this.textInputCorrectAnswer = correctText
+
+          const userText = (this.textInputAnswer || '').trim()
+
+          const norm = s =>
+            s
+              .toLowerCase()
+              .replace(/\s+/g, ' ')
+              .trim()
+
+          if (correctText && norm(userText) === norm(correctText)) {
+            isCorrect = true
+          }
+        } else {
+          // MULTIPLE_CHOICE / TRUE_FALSE
+          const chosen = Array.isArray(q.options)
+            ? q.options.find(o => o.optionId === this.selectedOptionId)
+            : null
+          isCorrect = !!(chosen && chosen.isCorrect)
+        }
 
         if (isCorrect) {
           this.singleplayerStore.score++
         }
 
-        // Speichern in DB (Statistics Tabelle)
+        // Statistik speichern
         try {
           await axios.post('/api/saveSingleAnswer.php', {
             userID: this.sessionStore.userID,
             questionID: q.questionId,
-            optionID: this.selectedOptionId,
+            optionID: this.isTextInputQuestion ? null : this.selectedOptionId,
             isCorrect: isCorrect
-          });
+          })
         } catch (e) {
-          console.error("Fehler beim Speichern der Statistik:", e);
+          console.error('Fehler beim Speichern der Statistik:', e)
         }
+
         return
       }
 
-      // 2. Weiter oder beenden
+      // 2. Weiter / Beenden
       const lastIndex = this.singleplayerStore.questions.length - 1
       if (this.singleplayerStore.currentQuestionIndex < lastIndex) {
         this.singleplayerStore.currentQuestionIndex++
         this.selectedOptionId = null
         this.isAnswerSubmitted = false
+        this.textInputAnswer = ''
+        this.textInputCorrectAnswer = ''
       } else {
         this.singleplayerStore.finished = true
       }
@@ -253,8 +317,6 @@ export default {
     showSinglePlayerDifficultyModal() {
       this.isShowingSinglePlayerModal = true
     }
-  },
-  mounted() {
   }
 }
 </script>
@@ -272,8 +334,6 @@ export default {
   justify-content: center;
   z-index: 1000;
 }
-
-/* einfache Zustandsklassen */
 .answer-option {
   padding: 12px 16px;
   border-radius: 8px;
@@ -297,5 +357,12 @@ export default {
 .disabled-options .answer-option {
   pointer-events: none;
   opacity: 0.8;
+}
+.singleplayer-explanation {
+  margin-top: 16px;
+  padding: 12px;
+  background: #f1f5f9;
+  border-radius: 8px;
+  font-size: 14px;
 }
 </style>
