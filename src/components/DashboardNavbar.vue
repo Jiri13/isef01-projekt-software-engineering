@@ -4,8 +4,9 @@
             <div class="navbar-content">
                 <div @click.prevent="returnToDashboard()" class="navbar-brand">🎯 IU Quiz</div>
                 <div class="nav-links">
-                    <span v-if="sessionStore.userID && usersData[sessionStore.userID - 1]">👋 {{
-                        usersData[sessionStore.userID - 1].first_name }}</span>
+                    <span v-if="sessionStore.userID && getUserData()">👋 {{
+                        getUserData().first_name }}</span>
+                    <button class="btn btn-secondary" v-if="getUserData().role == 'Admin'" @click.prevent="goToUserManagement()">Benutzerverwaltung</button>
                     <button class="btn btn-secondary" @click.prevent="logout()">Abmelden</button>
                 </div>
             </div>
@@ -24,7 +25,7 @@ export default {
 
         return {
             sessionStore,
-            usersData
+            usersData,
         }
     },
     methods: {
@@ -35,6 +36,15 @@ export default {
         },
         returnToDashboard() {
             router.push('/');
+        },
+        getUserData() {
+            const user = usersData.find(user => {
+                return this.sessionStore.userID == user.userID;
+            });
+            return user;
+        },
+        goToUserManagement(){
+            router.push('/usermanagement')
         }
     }
 }

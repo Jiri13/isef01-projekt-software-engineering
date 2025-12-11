@@ -5,6 +5,7 @@ import QuestionManagementPage from '@/components/QuestionManagementPage.vue';
 import SingleplayerPage from '@/components/SingleplayerPage.vue';
 import MultiplayerPage from '@/components/MultiplayerPage.vue';
 import QuizManagementPage from '@/components/QuizManagementPage.vue';
+import UserManagementPage from '@/components/UserManagementPage.vue';
 
 const routes = [
     {
@@ -37,6 +38,11 @@ const routes = [
         path: '/quizmanagement',
         name: 'QuizManagement',
         component: QuizManagementPage
+    },
+    {
+        path: '/usermanagement',
+        name: 'UserManagement',
+        component:UserManagementPage
     }
 ];
 
