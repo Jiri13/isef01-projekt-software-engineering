@@ -1,6 +1,7 @@
 <?php
 // api/getQuestions.php
-// [OPTIMIZED] Lädt alle Fragen und Optionen in nur 2 Datenbank-Abfragen (Batch-Loading)
+// [OPTIMIZED] Lädt alle Fragen und Optionen in nur 2 Datenbank-Abfragen (Batch-Loading) für Fragenverwaltung
+// + liefert creatorFirstName/creatorLastName aus users (JOIN)
 
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
@@ -12,20 +13,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { exit; }
 require __DIR__ . '/dbConnection.php';
 
 try {
-    // 1. Alle Fragen laden
+    // 1. Alle Fragen + Ersteller (Vorname/Nachname) laden
     $stmt = $pdo->query("
         SELECT
-            questionID      AS id,
-            question_text   AS text,
-            question_type   AS type,
-            difficulty,
-            time_limit      AS timeLimit,
-            explanation,
-            quizID,
-            userID,
-            created_at      AS createdAt
-        FROM question
-        ORDER BY created_at DESC, questionID DESC
+            q.questionID      AS id,
+            q.question_text   AS text,
+            q.question_type   AS type,
+            q.difficulty,
+            q.time_limit      AS timeLimit,
+            q.explanation,
+            q.quizID,
+            q.userID,
+            q.created_at      AS createdAt,
+            u.first_name      AS creatorFirstName,
+            u.last_name       AS creatorLastName
+        FROM question q
+        LEFT JOIN users u ON u.userID = q.userID
+        ORDER BY q.created_at DESC, q.questionID DESC
     ");
     $questions = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -54,7 +58,7 @@ try {
     // 4. Optionen den Fragen zuordnen (im PHP-Speicher)
     $optionsByQuestion = [];
     foreach ($allOptions as $opt) {
-        $qID = $opt['questionID'];
+        $qID = (int)$opt['questionID'];
         unset($opt['questionID']); // redundant im JSON
 
         // isCorrect als int
@@ -70,6 +74,10 @@ try {
         $q['quizID']    = $q['quizID'] ? (int)$q['quizID'] : null;
         $q['userID']    = (int)$q['userID'];
 
+        // Ersteller Strings normalisieren (falls NULL)
+        $q['creatorFirstName'] = isset($q['creatorFirstName']) ? (string)$q['creatorFirstName'] : '';
+        $q['creatorLastName']  = isset($q['creatorLastName'])  ? (string)$q['creatorLastName']  : '';
+
         $qOptions = $optionsByQuestion[$q['id']] ?? [];
         $q['options'] = $qOptions;
 
@@ -77,9 +85,9 @@ try {
         $correctText  = '';
 
         foreach ($qOptions as $idx => $opt) {
-            if ($opt['isCorrect'] === 1) {
+            if ((int)$opt['isCorrect'] === 1) {
                 $correctIndex = $idx;
-                $correctText  = $opt['text'];
+                $correctText  = (string)$opt['text'];
                 break; // erste richtige Antwort reicht
             }
         }
@@ -94,7 +102,7 @@ try {
             $q['correctAnswer'] = $correctIndex;
         }
     }
-    unset($q); // Referenz aufheben
+    unset($q);
 
     echo json_encode($questions);
 

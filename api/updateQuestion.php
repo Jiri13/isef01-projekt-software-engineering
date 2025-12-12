@@ -1,6 +1,6 @@
 <?php
 // api/updateQuestion.php
-// [WHY]Endpoint zum Aktualisieren einer bestehenden Frage + Antwortoptionen
+// Endpoint zum Aktualisieren einer bestehenden Frage + Antwortoptionen
 
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
@@ -13,11 +13,11 @@ header('Access-Control-Allow-Headers: Content-Type');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { exit; }
 
+session_start();
 require __DIR__ . '/dbConnection.php';
 
 // JSON-Daten vom Frontend lesen
 $input = json_decode(file_get_contents('php://input'), true);
-
 if (!$input) {
     http_response_code(400);
     echo json_encode(['error' => 'Invalid or missing JSON body']);
@@ -39,7 +39,37 @@ if ($questionID <= 0) {
     exit;
 }
 
+// Session-User prüfen
+if (!isset($_SESSION['userID'])) {
+    http_response_code(401);
+    echo json_encode(['error' => 'Not logged in']);
+    exit;
+}
+
+$currentUserID   = (int)$_SESSION['userID'];
+$currentUserRole = $_SESSION['user_role'] ?? 'Creator';
+
 try {
+    // Eigentümer der Frage holen
+    $stmtOwner = $pdo->prepare("SELECT userID FROM question WHERE questionID = :qid");
+    $stmtOwner->execute([':qid' => $questionID]);
+    $owner = $stmtOwner->fetch(PDO::FETCH_ASSOC);
+
+    if (!$owner) {
+        http_response_code(404);
+        echo json_encode(['error' => 'Question not found']);
+        exit;
+    }
+
+    $ownerID = (int)$owner['userID'];
+
+    // Berechtigung prüfen: Besitzer oder Admin
+    if ($ownerID !== $currentUserID && $currentUserRole !== 'Admin') {
+        http_response_code(403);
+        echo json_encode(['error' => 'Not allowed to update this question']);
+        exit;
+    }
+
     $pdo->beginTransaction();
 
     // Frage aktualisieren
@@ -65,7 +95,7 @@ try {
     $pdo->prepare("DELETE FROM question_option WHERE questionID = :qid")
         ->execute([':qid' => $questionID]);
 
-    //  Neue Optionen für ALLE Fragetypen einfügen, sofern vorhanden
+    // Neue Optionen einfügen
     if (!empty($options)) {
         $optStmt = $pdo->prepare("
             INSERT INTO question_option (questionID, option_text, is_correct)
@@ -73,9 +103,7 @@ try {
         ");
         foreach ($options as $opt) {
             $optText = trim((string)($opt['text'] ?? ''));
-            if ($optText === '') {
-                continue;
-            }
+            if ($optText === '') continue;
 
             $isCorrect = !empty($opt['isCorrect']) ? 1 : 0;
             $optStmt->execute([

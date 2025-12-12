@@ -1,19 +1,36 @@
 <?php
 // api/addQuestion.php
-// [WHY] Endpoint zum Anlegen einer Frage. Unterstützt direktes Mitliefern von Antwortoptionen in einem Array
+// Endpoint zum Anlegen einer Frage. Unterstützt Antwortoptionen-Array.
 // Liefert questionID zurück.
 
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
-// Abfangen von Preflight OPTIONS Anfragen
+
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { exit; }
 
-// DB-Verbindung herstellen
+session_start();
 require __DIR__ . '/dbConnection.php'; // erwartet $pdo (PDO)
 
-//Eingabedaten parsen
+// Prüfen, ob eingeloggt
+if (!isset($_SESSION['userID'])) {
+    http_response_code(401);
+    echo json_encode(['error' => 'Not logged in']);
+    exit;
+}
+
+$currentUserID  = (int)$_SESSION['userID'];
+$currentUserRole = $_SESSION['user_role'] ?? 'Creator';
+
+// Nur Creator und Admin dürfen Fragen anlegen
+if (!in_array($currentUserRole, ['Creator', 'Admin'], true)) {
+    http_response_code(403);
+    echo json_encode(['error' => 'Not allowed to create questions']);
+    exit;
+}
+
+// JSON einlesen
 $input = json_decode(file_get_contents('php://input'), true);
 if (!$input) {
     http_response_code(400);
@@ -25,7 +42,6 @@ if (!$input) {
  Erwartetes JSON vom Frontend:
  {
    "quizID": 1,
-   "userID": 5,
    "text": "Fragetext",
    "type": "multiple_choice" | "text_input" | "true_false",
    "options": [ {"text":"A","isCorrect":false}, {"text":"B","isCorrect":true} ],
@@ -37,7 +53,9 @@ if (!$input) {
 
 //Werte aus dem JSON herausziehen und Standardwerte setzen
 $quizID      = isset($input['quizID']) ? (int)$input['quizID'] : 0;
-$userID      = isset($input['userID']) ? (int)$input['userID'] : 0;
+// userID kommt jetzt NICHT mehr aus dem Input, sondern aus Session:
+$userID      = $currentUserID;
+
 $questionTxt = trim((string)($input['text'] ?? ''));
 $type        = strtolower(trim((string)($input['type'] ?? 'multiple_choice')));
 $difficulty  = strtolower(trim((string)($input['difficulty'] ?? 'medium')));
@@ -46,9 +64,9 @@ $timeLimit   = isset($input['timeLimit']) ? (int)$input['timeLimit'] : 30;
 $options     = isset($input['options']) && is_array($input['options']) ? $input['options'] : [];
 
 // Pflichtfelder prüfen
-if ($quizID <= 0 || $userID <= 0 || $questionTxt === '') {
+if ($quizID <= 0 || $questionTxt === '') {
     http_response_code(400);
-    echo json_encode(['error' => 'quizID, userID and text are required']);
+    echo json_encode(['error' => 'quizID and text are required']);
     exit;
 }
 
@@ -86,9 +104,8 @@ try {
         ");
         foreach ($options as $opt) {
             $optText = trim((string)($opt['text'] ?? ''));
-            if ($optText === '') {
-                continue;
-            }
+            if ($optText === '') continue;
+
             $isCorrect = !empty($opt['isCorrect']) ? 1 : 0;
             $optStmt->execute([
                 ':questionID' => $questionID,
