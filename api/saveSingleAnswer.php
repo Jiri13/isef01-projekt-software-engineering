@@ -7,21 +7,27 @@ header('Access-Control-Allow-Headers: Content-Type');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') exit;
 
+session_start();
 require __DIR__ . '/dbConnection.php';
+
+if (empty($_SESSION['userID'])) {
+    http_response_code(401);
+    echo json_encode(['error' => 'Not logged in']);
+    exit;
+}
 
 $input = json_decode(file_get_contents('php://input'), true);
 
-$userID     = (int)($input['userID'] ?? 0);
+$userID     = (int)$_SESSION['userID']; //  nur aus Session!
 $questionID = (int)($input['questionID'] ?? 0);
 $isCorrect  = !empty($input['isCorrect']) ? 1 : 0;
 
-// FIX: optionID auf NULL prüfen
 $rawOptionID = isset($input['optionID']) ? (int)$input['optionID'] : 0;
 $optionID    = ($rawOptionID > 0) ? $rawOptionID : null;
 
-if ($userID <= 0 || $questionID <= 0) {
+if ($questionID <= 0) {
     http_response_code(400);
-    echo json_encode(['error' => 'userID and questionID required']);
+    echo json_encode(['error' => 'questionID required']);
     exit;
 }
 
@@ -31,10 +37,10 @@ try {
         VALUES (:uid, :qid, :oid, :correct, NOW())
     ");
 
-    $stmt->bindValue(':uid',     $userID,    PDO::PARAM_INT);
-    $stmt->bindValue(':qid',     $questionID,PDO::PARAM_INT);
-    $stmt->bindValue(':oid',     $optionID,  $optionID === null ? PDO::PARAM_NULL : PDO::PARAM_INT);
-    $stmt->bindValue(':correct', $isCorrect, PDO::PARAM_INT);
+    $stmt->bindValue(':uid',     $userID,      PDO::PARAM_INT);
+    $stmt->bindValue(':qid',     $questionID,  PDO::PARAM_INT);
+    $stmt->bindValue(':oid',     $optionID,    $optionID === null ? PDO::PARAM_NULL : PDO::PARAM_INT);
+    $stmt->bindValue(':correct', $isCorrect,   PDO::PARAM_INT);
 
     $stmt->execute();
 

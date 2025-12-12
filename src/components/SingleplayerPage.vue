@@ -290,7 +290,6 @@ export default {
         // Statistik speichern
         try {
           await axios.post('/api/saveSingleAnswer.php', {
-            userID: this.sessionStore.userID,
             questionID: q.questionId,
             optionID: this.isTextInputQuestion ? null : this.selectedOptionId,
             isCorrect: isCorrect
