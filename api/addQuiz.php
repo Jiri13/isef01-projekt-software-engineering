@@ -13,7 +13,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
+session_start();
+
 require __DIR__ . '/dbConnection.php';
+
+// ✅ Login erforderlich
+if (empty($_SESSION['userID'])) {
+    http_response_code(401);
+    echo json_encode([
+        'ok' => false,
+        'error' => 'Not logged in'
+    ]);
+    exit;
+}
 
 // JSON-Body lesen
 $rawBody = file_get_contents('php://input');
@@ -30,19 +42,15 @@ if (!is_array($input)) {
 }
 
 /*
-Erwartet vom Frontend (CreateQuizModal.vue -> createQuiz()):
+Erwartet vom Frontend:
 
 {
-  "userID": 1,
   "title": "Name des Quiz",
   "category": "Modul/Fach",
   "description": "Beschreibung",
   "timeLimit": 30,          // optional (Integer oder null)
-
-  // ENTWEDER so:
-  "questionIDs": [3, 8, 11]
-
-  // ODER (aktuelles Frontend):
+  "questionIDs": [3, 8, 11] // optional
+  // oder:
   "questions": [3, 8, 11]
 }
 */
@@ -50,9 +58,11 @@ Erwartet vom Frontend (CreateQuizModal.vue -> createQuiz()):
 $title       = trim((string)($input['title'] ?? ''));
 $category    = trim((string)($input['category'] ?? ''));
 $description = trim((string)($input['description'] ?? ''));
-$userID      = isset($input['userID']) ? (int)$input['userID'] : 0;
 
-$timeLimit   = (isset($input['timeLimit']) && $input['timeLimit'] !== '')
+// ✅ Owner kommt IMMER aus Session (Payload-userID wird ignoriert)
+$userID = (int)$_SESSION['userID'];
+
+$timeLimit   = (isset($input['timeLimit']) && $input['timeLimit'] !== '' && $input['timeLimit'] !== null)
     ? (int)$input['timeLimit']
     : null;
 
@@ -73,17 +83,16 @@ $questionIDs = array_values(
     )
 );
 
-// Pflichtfelder prüfen
-if ($title === '' || $category === '' || $description === '' || $userID <= 0) {
+// Pflichtfelder prüfen (userID nicht mehr prüfen -> kommt aus Session)
+if ($title === '' || $category === '' || $description === '') {
     http_response_code(400);
     echo json_encode([
         'ok'    => false,
-        'error' => 'title, category, description and userID are required',
+        'error' => 'title, category and description are required',
         'data'  => [
             'title'       => $title,
             'category'    => $category,
-            'description' => $description,
-            'userID'      => $userID
+            'description' => $description
         ]
     ]);
     exit;
@@ -92,7 +101,7 @@ if ($title === '' || $category === '' || $description === '' || $userID <= 0) {
 try {
     $pdo->beginTransaction();
 
-    // Quiz anlegen (Tabelle: quiz, Spalten klein)
+    // Quiz anlegen
     $sql = "
         INSERT INTO quiz (title, quiz_description, time_limit, category, userID, created_at)
         VALUES (:title, :descr, :tl, :cat, :userID, :created)
@@ -107,10 +116,9 @@ try {
         ':created' => date('Y-m-d H:i:s')
     ]);
 
-    // Auto-Increment-ID des neuen Quiz
     $quizID = (int)$pdo->lastInsertId();
 
-    // Ausgewählte Fragen diesem Quiz zuordnen (wenn angegeben)
+    // Fragen zuordnen (wenn angegeben)
     if (!empty($questionIDs)) {
         $ins = $pdo->prepare("
             INSERT INTO quizquestion (quizID, questionID, sort_order)

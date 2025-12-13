@@ -139,13 +139,13 @@ export default {
 
       try {
         const payload = {
-          userID: this.session.userID,
           title: this.form.name,
           category: this.form.category,
           description: this.form.description,
           timeLimit: this.form.timeLimit,
           questions: this.form.questions
         };
+
 
         const res = await axios.post('/api/addQuiz.php', payload);
 

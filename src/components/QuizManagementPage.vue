@@ -6,11 +6,11 @@
     </div>
     <div v-if="isShowingEditQuizModal" class="modal">
       <edit-quiz-modal
-          v-model="isShowingEditQuizModal"
-          :quizID="selectedQuizID"
-          :quizzes="quizzes"
-          :questions="selectedQuizQuestions"
-          @updated="onQuizUpdated"
+        v-model="isShowingEditQuizModal"
+        :quizID="selectedQuizID"
+        :quizzes="quizzes"
+        :questions="selectedQuizQuestions"
+        @updated="onQuizUpdated"
       />
     </div>
   </Teleport>
@@ -27,9 +27,17 @@
     <div v-else-if="error" style="margin-left: 50px; color: red;">{{ error }}</div>
 
     <div v-else style="overflow-y: auto; margin-bottom: 24px; margin-left: 50px; margin-right: 50px;">
-      <div v-for="quiz in quizzes" :key="quiz.quizID" class="card"
-           style="border: 2px solid #007bff; margin-bottom: 16px; position: relative;">
-        <div style="cursor: pointer;" @click.prevent="editQuiz(quiz.quizID)">
+      <div
+        v-for="quiz in quizzes"
+        :key="quiz.quizID"
+        class="card"
+        style="border: 2px solid #007bff; margin-bottom: 16px; position: relative;"
+      >
+        <!--  Klick nur wenn erlaubt -->
+        <div
+          style="cursor: pointer;"
+          @click.prevent="canManageQuiz(quiz) && editQuiz(quiz.quizID)"
+        >
           <div style="display: flex; justify-content: space-between; margin-bottom: 12px; align-items: flex-start;">
             <div>
               <h3>
@@ -39,19 +47,28 @@
                 </small>
               </h3>
               <p>{{ quiz.quiz_description }}</p>
-              <p>Kategorie: {{ quiz.category }} | Zeitlimit: {{ quiz.time_limit }}s</p>
+              <p>Studiengang: {{ quiz.category }} | Zeitlimit: {{ quiz.time_limit }}s</p>
 
-              <button v-if="Number(quiz.userID) === Number(sessionStore.userID)"
-                      @click.stop="deleteQuiz(quiz.quizID)"
-                      class="btn btn-danger"
-                      style="position:absolute;bottom:12px;right:12px;padding:8px 12px;font-size:14px;">
+              <!--  Löschen nur wenn erlaubt -->
+              <button
+                v-if="canManageQuiz(quiz)"
+                @click.stop="deleteQuiz(quiz.quizID)"
+                class="btn btn-danger"
+                style="position:absolute;bottom:12px;right:12px;padding:8px 12px;font-size:14px;"
+              >
                 🗑️ Quiz löschen
               </button>
+
+              <!-- optional: Hinweis, wenn nicht berechtigt -->
+              <small v-if="!canManageQuiz(quiz)" style="color:#999;">
+                (Nur Ersteller/Admin kann bearbeiten)
+              </small>
             </div>
           </div>
         </div>
       </div>
     </div>
+
   </div>
 </template>
 
@@ -64,18 +81,13 @@ import router from '@/router/index'
 import axios from 'axios'
 
 export default {
-  components: {
-    DashboardNavbar,
-    CreateQuizModal,
-    EditQuizModal
-  },
+  components: { DashboardNavbar, CreateQuizModal, EditQuizModal },
 
   data() {
     const sessionStore = useSessionStore()
     return {
       sessionStore,
       quizzes: [],
-      questions: [],
       selectedQuizID: null,
       selectedQuizQuestions: [],
       isShowingCreateQuizModal: false,
@@ -84,10 +96,20 @@ export default {
       error: null
     }
   },
+
   async mounted() {
     await this.fetchQuizzes();
   },
+
   methods: {
+    canManageQuiz(quiz) {
+      const me = this.sessionStore.userID
+      const role = this.sessionStore.userRole
+      if (!me) return false
+      if (role === 'Admin') return true
+      return Number(quiz.userID) === Number(me)
+    },
+
     async fetchQuizzes() {
       this.loading = true;
       this.error = null;
@@ -102,18 +124,11 @@ export default {
       }
     },
 
-    // Diese Funktion lädt die Fragen für das Modal
     async loadQuestionsForQuiz(quizID) {
-      console.log("Lade Fragen für Quiz ID:", quizID);
       try {
-        const response = await axios.get('/api/getQuizQuestions.php', {
-          params: { quizID: quizID }
-        });
-
-        console.log("Antwort von getQuizQuestions:", response.data);
+        const response = await axios.get('/api/getQuizQuestions.php', { params: { quizID } });
 
         if (response.data && Array.isArray(response.data.questions)) {
-          // Wir erzwingen ein neues Array, damit Vue das Update bemerkt
           this.selectedQuizQuestions = [...response.data.questions.map(q => ({
             questionID: q.questionId || q.questionID,
             question_text: q.questionText || q.question_text,
@@ -122,7 +137,6 @@ export default {
             time_limit: q.timeLimit || q.time_limit,
             explanation: q.explanation
           }))];
-          console.log("Gesetzte selectedQuizQuestions:", this.selectedQuizQuestions);
         } else {
           this.selectedQuizQuestions = [];
         }
@@ -132,19 +146,21 @@ export default {
     },
 
     async editQuiz(quizID) {
+      // ✅ Sicherheits-Fallback (auch wenn Button versteckt ist)
+      const quiz = this.quizzes.find(q => Number(q.quizID) === Number(quizID))
+      if (quiz && !this.canManageQuiz(quiz)) {
+        alert('❌ Keine Berechtigung dieses Quiz zu bearbeiten.')
+        return
+      }
+
       this.selectedQuizID = quizID;
-      this.selectedQuizQuestions = []; // Reset vor dem Laden
+      this.selectedQuizQuestions = [];
       await this.loadQuestionsForQuiz(quizID);
       this.isShowingEditQuizModal = true;
     },
 
-    // Wird aufgerufen, wenn im Modal etwas passiert (Hinzufügen/Entfernen)
     async onQuizUpdated() {
-      console.log("Quiz Updated Event empfangen!");
-      // 1. Metadaten neu laden
       await this.fetchQuizzes();
-
-      // 2. Fragen neu laden (WICHTIG für das Live-Update der Liste)
       if (this.selectedQuizID) {
         await this.loadQuestionsForQuiz(this.selectedQuizID);
       }
@@ -156,7 +172,19 @@ export default {
 
     async deleteQuiz(quizID) {
       if (!confirm('Möchtest du dieses Quiz wirklich löschen?')) return;
-      alert("Löschen-Funktion muss im Backend noch implementiert werden.");
+
+      try {
+        const res = await axios.post('/api/deleteQuiz.php', { quizID });
+        if (res.data?.ok) {
+          this.quizzes = this.quizzes.filter(q => Number(q.quizID) !== Number(quizID))
+          alert('Quiz erfolgreichgelöscht')
+        } else {
+          alert(res.data?.error || 'Löschen fehlgeschlagen')
+        }
+      } catch (e) {
+        console.error(e);
+        alert(e.response?.data?.error || 'Serverfehler beim Löschen');
+      }
     },
 
     showQuestionPage() {
