@@ -1,7 +1,9 @@
 <?php
 // api/getQuestions.php
-// [OPTIMIZED] Lädt alle Fragen und Optionen in nur 2 Datenbank-Abfragen (Batch-Loading) für Fragenverwaltung
-// + liefert creatorFirstName/creatorLastName aus users (JOIN)
+// - Liefert alle Fragen inkl. Antwortoptionen in nur 2 DB-Abfragen (Batch Loading).
+// - Enthält zusätzlich die Ersteller-Informationen (Vorname/Nachname) per LEFT JOIN auf `users`.
+// Einsatz:
+// - Fragenverwaltung im Frontend (Übersicht, Bearbeiten-Modal etc.)
 
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
@@ -13,7 +15,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { exit; }
 require __DIR__ . '/dbConnection.php';
 
 try {
-    // 1. Alle Fragen + Ersteller (Vorname/Nachname) laden
+    /**
+     * 1) Fragen laden (inkl. Ersteller)
+     * - LEFT JOIN, damit Fragen auch dann geliefert werden, wenn der User nicht mehr existiert (NULL möglich).
+     * - Sortierung: neueste zuerst.
+     */
     $stmt = $pdo->query("
         SELECT
             q.questionID      AS id,
@@ -32,16 +38,25 @@ try {
         ORDER BY q.created_at DESC, q.questionID DESC
     ");
     $questions = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
+    
+    // Wenn keine Fragen existieren, geben wir ein leeres Array zurück (kein Fehlerfall)
     if (empty($questions)) {
         echo json_encode([]);
         exit;
     }
 
-    // 2. IDs aller geladenen Fragen sammeln
+    /**
+     * 2) Alle questionIDs sammeln
+     * - Wird für den Batch-Query auf `question_option` verwendet.
+     */
     $questionIDs = array_column($questions, 'id');
 
-    // 3. Alle Optionen zu diesen Fragen in EINER Abfrage laden
+    /**
+     * 3) Alle Optionen zu allen geladenen Fragen in einer Abfrage holen
+     * Hinweis:
+     * - $idsForQuery wird aus Integern gebaut (array_map('intval')), um nur gültige IDs zu verwenden.
+     * - Dadurch sind die Werte sauber numerisch, bevor sie in den IN()-Teil eingefügt werden.
+     */
     $idsForQuery = implode(',', array_map('intval', $questionIDs));
     $optStmt = $pdo->query("
         SELECT
@@ -55,13 +70,16 @@ try {
     ");
     $allOptions = $optStmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // 4. Optionen den Fragen zuordnen (im PHP-Speicher)
+    /**
+     * 4) Optionen im PHP-Speicher nach questionID gruppieren
+     * - Ziel: Schneller Zugriff beim Zusammenbauen der finalen JSON-Struktur.
+     */
     $optionsByQuestion = [];
     foreach ($allOptions as $opt) {
         $qID = (int)$opt['questionID'];
         unset($opt['questionID']); // redundant im JSON
 
-        // isCorrect als int
+        // Einheitlicher Datentyp für das Frontend (int statt string/bool)
         $opt['isCorrect'] = (int)$opt['isCorrect'];
 
         $optionsByQuestion[$qID][] = $opt;
@@ -78,9 +96,11 @@ try {
         $q['creatorFirstName'] = isset($q['creatorFirstName']) ? (string)$q['creatorFirstName'] : '';
         $q['creatorLastName']  = isset($q['creatorLastName'])  ? (string)$q['creatorLastName']  : '';
 
+        // Optionen zur Frage hinzufügen
         $qOptions = $optionsByQuestion[$q['id']] ?? [];
         $q['options'] = $qOptions;
 
+         // Richtig-Information ableiten
         $correctIndex = -1;
         $correctText  = '';
 
@@ -95,15 +115,15 @@ try {
         $type = strtolower((string)$q['type']);
 
         if ($type === 'text_input') {
-            // Für Texteingabe geben wir den TEXT der richtigen Antwort zurück
+            // Texteingabe: korrekter Antworttext wird als correctAnswer zurückgegeben
             $q['correctAnswer'] = $correctText;
         } else {
-            // Für Multiple Choice / True-False geben wir wie bisher den Index zurück
+            // Multiple Choice / True-False: Index der richtigen Option (oder -1 falls keine markiert)
             $q['correctAnswer'] = $correctIndex;
         }
     }
     unset($q);
-
+    // Antwort: vollständige Fragenliste als JSON
     echo json_encode($questions);
 
 } catch (Exception $e) {

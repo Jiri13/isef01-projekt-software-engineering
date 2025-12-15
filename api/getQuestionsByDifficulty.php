@@ -13,11 +13,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require __DIR__ . '/dbConnection.php';
 
-// Parameter auslesen
+/**
+ * Parameter auslesen und validieren
+ * - difficulty: erwartete Werte: easy|medium|hard (Default: easy)
+ * - limit: Anzahl der Fragen (Default: 20)
+ */
 $difficultyParam = isset($_GET['difficulty']) ? strtolower(trim($_GET['difficulty'])) : 'easy';
 $limitParam      = isset($_GET['limit']) ? (int)$_GET['limit'] : 20;
 
-// Sicherheit: nur erlaubte Werte
+// Sicherheits-Validierung: nur erlaubte Werte akzeptieren
 if (!in_array($difficultyParam, ['easy', 'medium', 'hard'], true)) {
     $difficultyParam = 'easy';
 }
@@ -29,7 +33,11 @@ if ($limitParam <= 0) {
 $difficultyDb = ucfirst($difficultyParam);
 
 try {
-    // 1. Fragen mit passender Difficulty holen
+    /**
+     * 1) Fragen mit gewünschter Difficulty laden
+     * - ORDER BY RAND() sorgt für zufällige Reihenfolge (für kleine Datenmengen ok).
+     * - LIMIT begrenzt die Anzahl der Fragen.
+     */
     $stmt = $pdo->prepare("
         SELECT
             q.questionID    AS questionId,
@@ -50,16 +58,23 @@ try {
 
     $questions = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+    // Keine passenden Fragen gefunden -> leeres Ergebnis zurückgeben
     if (!$questions) {
         echo json_encode(['questions' => []]);
         exit;
     }
 
-    // 2. IDs der Fragen sammeln
+    /**
+     * 2) IDs der geladenen Fragen sammeln
+     * - Damit wir im nächsten Schritt alle Optionen in EINER Abfrage laden können.
+     */
     $ids = array_column($questions, 'questionId');
     $placeholders = implode(',', array_fill(0, count($ids), '?'));
 
-    // 3. Optionen zu diesen Fragen holen
+    /**
+     * 3) Optionen zu allen geladenen Fragen in einer Abfrage holen
+     * - WHERE IN (...) mit dynamischen Placeholders.
+     */
     $optStmt = $pdo->prepare("
         SELECT
             qo.questionID      AS questionId,
@@ -77,7 +92,10 @@ try {
 
     $options = $optStmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // 4. Optionen nach questionId gruppieren
+    /**
+     * 4) Optionen nach questionId gruppieren
+     * - Ziel: Schnelle Zuordnung der Optionen zur jeweiligen Frage im nächsten Schritt.
+     */
     $byQuestion = [];
     foreach ($options as $opt) {
         $qid = (int)$opt['questionId'];
@@ -91,7 +109,11 @@ try {
         ];
     }
 
-    // 5. Endgültige Struktur bauen
+    /**
+     * 5) Finales Response-Objekt bauen
+     * - timeLimit wird auf int normalisiert
+     * - options werden ergänzt
+     */
     $result = [];
     foreach ($questions as $q) {
         $qid = (int)$q['questionId'];

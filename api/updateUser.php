@@ -1,6 +1,10 @@
 <?php
 // api/updateUser.php
-//für Benutzerverwaltung im admin bereich
+// Zweck:
+// Aktualisiert einen bestehenden Benutzer (Name, E-Mail, Rolle) in der Benutzerverwaltung.
+// Optional kann auch das Passwort geändert werden.
+// Hinweis: Diese Aktion ist ausschließlich Admins erlaubt.
+
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, OPTIONS');
@@ -11,13 +15,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') exit;
 session_start();
 require __DIR__ . '/dbConnection.php';
 
-// Nur Admin darf Benutzer bearbeiten
+// Berechtigungsprüfung: Nur Admin darf Benutzer bearbeiten
 if (!isset($_SESSION['userID']) || ($_SESSION['user_role'] ?? '') !== 'Admin') {
     http_response_code(403);
     echo json_encode(['error' => 'Not allowed']);
     exit;
 }
 
+// Request-Body einlesen und Eingaben vorbereiten
 $input = json_decode(file_get_contents('php://input'), true);
 
 $userID    = (int)($input['userID'] ?? 0);
@@ -27,12 +32,14 @@ $email     = trim($input['email'] ?? '');
 $role      = trim($input['user_role'] ?? '');
 $password  = (string)($input['password'] ?? ''); // optional
 
+// Pflichtfelder validieren
 if ($userID <= 0 || $firstName === '' || $email === '' || $role === '') {
     http_response_code(400);
     echo json_encode(['error' => 'userID, first_name, email and user_role are required']);
     exit;
 }
 
+// Rollen-Whitelist: Nur diese Rollen sind zulässig
 $allowedRoles = ['Creator', 'Admin'];
 if (!in_array($role, $allowedRoles, true)) {
     http_response_code(400);
@@ -50,7 +57,9 @@ try {
         exit;
     }
 
-    // Basis-SQL
+    // 4) Dynamisches UPDATE bauen:
+    //    - Standardfelder immer aktualisieren
+    //    - Passwort nur aktualisieren, wenn übergeben (nicht leer)
     $sql = "
         UPDATE users
         SET first_name = :fn,
@@ -74,11 +83,14 @@ try {
         $params[':ph'] = $passwordHash;
     }
 
+    // WHERE-Klausel immer am Ende hinzufügen
     $sql .= " WHERE userID = :id";
 
+    // 5) Update ausführen
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
 
+    // Erfolgsmeldung zurückgeben
     echo json_encode(['ok' => true]);
 
 } catch (Throwable $e) {

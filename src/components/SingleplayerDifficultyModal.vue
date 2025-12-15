@@ -189,7 +189,7 @@ export default {
           this.singleplayerStore.questions = questions
 
         } else if (this.mode === 'catalogue') {
-          // 👇 erst prüfen & abbrechen
+          // erst prüfen & abbrechen
           if (!this.selectedDifficulty) {
             alert('Bitte zuerst einen Schwierigkeitsgrad wählen oder ein Quiz auswählen.')
             return

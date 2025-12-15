@@ -1,5 +1,11 @@
 <?php
 // api/logout.php
+// Zweck:
+// Beendet die aktuelle Benutzersitzung vollständig.
+// Dabei werden:
+//  - alle Session-Daten entfernt
+//  - das Session-Cookie ungültig gemacht
+//  - die Session serverseitig zerstört
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, OPTIONS');
@@ -7,6 +13,7 @@ header('Access-Control-Allow-Headers: Content-Type');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') exit;
 
+// Session starten bzw. vorhandene Session übernehmen
 session_start();
 
 // Session löschen

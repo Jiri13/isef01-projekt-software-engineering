@@ -1,5 +1,8 @@
 <?php
 // api/getQuizzes.php
+// Zweck:
+// Liefert eine Übersicht aller gespeicherten Quizze.
+// Wird z. B. in der Quizverwaltung verwendet.
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, OPTIONS');
@@ -10,11 +13,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { exit; }
 require __DIR__ . '/dbConnection.php';
 
 try {
-    // FIX: q.userID hinzugefügt, damit das Frontend den Owner prüfen kann
+    // Liefert auch die userID des Erstellers zurück,
+    //   damit das Frontend prüfen kann, ob der eingeloggte Benutzer
+    //   ein Quiz bearbeiten oder löschen darf.
+    
+    // LEFT JOIN wird verwendet, damit Quizze auch dann angezeigt werden,
+    // falls der zugehörige Benutzer (theoretisch) nicht mehr existiert.
     $sql = "
         SELECT
             q.quizID,
-            q.userID, 
+            q.userID,
             q.title,
             q.quiz_description,
             q.category,
@@ -28,8 +36,11 @@ try {
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute();
+
+    // Alle Quizze als assoziatives Array laden
     $quizzes = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+    // 2) Ergebnis als JSON an das Frontend zurückgeben
     echo json_encode($quizzes, JSON_UNESCAPED_UNICODE);
 
 } catch (Throwable $e) {

@@ -2,7 +2,7 @@
   <DashboardNavbar />
 
   <div class="container" style="margin-top: 24px;">
-    <!-- Neuer Button zum Erstellen einer Frage -->
+    <!-- Button zum Erstellen einer Frage -->
     <div style="text-align: right; margin-bottom: 12px;">
       <button class="btn btn-primary" @click.prevent="showQuizManagementPage()">🗂️ Quizverwaltung</button>
       <button class="btn btn-primary" @click="openNewQuestion">➕ Neue Frage hinzufügen</button>
@@ -35,7 +35,7 @@
               {{ getDifficultyLabel(q.difficulty) }}
             </span>
 
-            <!-- ✅ NEU: Ersteller anzeigen (Vorname + Nachname, falls Nachname leer dann nur Vorname) -->
+            <!--Ersteller anzeigen (Vorname + Nachname, falls Nachname leer dann nur Vorname) -->
             <br />
             <small style="color:#666;">
               Ersteller: {{ getCreatorLabel(q) }}
@@ -225,7 +225,7 @@ import router from '@/router/index';
 import { useSessionStore } from '@/stores/session';
 
 function normalize(q) {
-  // ⬇️ WICHTIG: creatorFirstName/creatorLastName aus getQuestions.php übernehmen
+  // creatorFirstName/creatorLastName aus getQuestions.php übernehmen
   return {
     id: q.questionID ?? q.id ?? Date.now(),
     text: q.question_text ?? q.text ?? '',
@@ -240,7 +240,6 @@ function normalize(q) {
     quizID: q.quizID ?? null,
     userID: q.userID ?? null,
 
-    // ✅ NEU:
     creatorFirstName: q.creatorFirstName ?? '',
     creatorLastName: q.creatorLastName ?? '',
   };
@@ -297,7 +296,6 @@ export default {
   },
 
   methods: {
-    // ✅ NEU: exakte Anzeige wie vorher
     getCreatorLabel(q) {
       const first = (q?.creatorFirstName || '').trim();
       const last  = (q?.creatorLastName || '').trim();
@@ -318,7 +316,6 @@ export default {
         quizID: 1,
         userID: this.sessionStore.userID,
 
-        // ✅ Damit es sofort sichtbar ist, auch bevor du neu lädst:
         creatorFirstName: this.sessionStore.firstName || '',
         creatorLastName: this.sessionStore.lastName || '',
       };
@@ -438,7 +435,7 @@ export default {
           if (!this.selectedQuestion.id || String(this.selectedQuestion.id).startsWith('temp')) {
             this.selectedQuestion.id = data.questionID;
 
-            // ✅ lokal direkt korrekt setzen (sonst wäre erst nach reload sichtbar)
+            // lokal direkt korrekt setzen (sonst wäre erst nach reload sichtbar)
             this.selectedQuestion.userID = this.sessionStore.userID;
             this.selectedQuestion.creatorFirstName = this.sessionStore.firstName || '';
             this.selectedQuestion.creatorLastName  = this.sessionStore.lastName || '';
@@ -526,7 +523,7 @@ export default {
       router.push('/quizmanagement');
     },
 
-    // 🔐 Rollen-Checks
+    // Rollen-Checks
     canEditQuestion(q) {
       const me = this.sessionStore.userID;
       const role = this.sessionStore.userRole;

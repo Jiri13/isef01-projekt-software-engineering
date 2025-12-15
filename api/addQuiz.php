@@ -1,7 +1,30 @@
 <?php
-// api/addQuiz.php
-// Legt ein neues Quiz an und ordnet (optional) vorhandene Fragen über die
-// Beziehungstabelle `quizquestion` zu.
+/**
+ * api/addQuiz.php
+ *
+ * Zweck:
+ * - Legt ein neues Quiz in der Tabelle `quiz` an.
+ * - Ordnet optional vorhandene Fragen über die Beziehungstabelle `quizquestion` zu.
+ *
+ * Sicherheit:
+ * - Zugriff nur für eingeloggte Benutzer (Session erforderlich).
+ * - Der Besitzer/Ersteller (userID) wird **immer** aus der Session übernommen.
+ *
+ * Request (JSON, POST):
+ * {
+ *   "title": "Name des Quiz",
+ *   "category": "Modul/Fach",
+ *   "description": "Beschreibung",
+ *   "timeLimit": 30,           // optional (Integer oder null)
+ *   "questionIDs": [3, 8, 11]  // optional
+ *   // oder alternativ:
+ *   "questions": [3, 8, 11]
+ * }
+ *
+ * Response (JSON):
+ * - Erfolgreich: { "ok": true, "quizID": 123 }
+ * - Fehler:      { "ok": false, "error": "..." }
+ */
 
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
@@ -17,7 +40,7 @@ session_start();
 
 require __DIR__ . '/dbConnection.php';
 
-// ✅ Login erforderlich
+// 1) Authentifizierung: Login/Sitzung erforderlich
 if (empty($_SESSION['userID'])) {
     http_response_code(401);
     echo json_encode([
@@ -27,7 +50,7 @@ if (empty($_SESSION['userID'])) {
     exit;
 }
 
-// JSON-Body lesen
+// 2) Request einlesen und validieren
 $rawBody = file_get_contents('php://input');
 $input   = json_decode($rawBody, true);
 
@@ -41,36 +64,24 @@ if (!is_array($input)) {
     exit;
 }
 
-/*
-Erwartet vom Frontend:
-
-{
-  "title": "Name des Quiz",
-  "category": "Modul/Fach",
-  "description": "Beschreibung",
-  "timeLimit": 30,          // optional (Integer oder null)
-  "questionIDs": [3, 8, 11] // optional
-  // oder:
-  "questions": [3, 8, 11]
-}
-*/
-
+// Pflicht-/Defaultwerte aus dem Request übernehmen
 $title       = trim((string)($input['title'] ?? ''));
 $category    = trim((string)($input['category'] ?? ''));
 $description = trim((string)($input['description'] ?? ''));
 
-// ✅ Owner kommt IMMER aus Session (Payload-userID wird ignoriert)
+// userID kommt nicht aus dem Request (Manipulationsschutz),
+// sondern immer aus der Session:
 $userID = (int)$_SESSION['userID'];
 
+// Optional: Zeitlimit (NULL erlaubt)
 $timeLimit   = (isset($input['timeLimit']) && $input['timeLimit'] !== '' && $input['timeLimit'] !== null)
     ? (int)$input['timeLimit']
     : null;
 
-// Frage-IDs aus dem Frontend holen:
-// bevorzugt "questionIDs", Fallback auf "questions"
+// Frage-IDs aus dem Frontend holen (beide Varianten unterstützen)
 $questionIDsRaw = $input['questionIDs'] ?? $input['questions'] ?? [];
 
-// Sicherstellen, dass es wirklich ein Array ist
+// Absichern: muss ein Array sein
 if (!is_array($questionIDsRaw)) {
     $questionIDsRaw = [];
 }
@@ -83,7 +94,7 @@ $questionIDs = array_values(
     )
 );
 
-// Pflichtfelder prüfen (userID nicht mehr prüfen -> kommt aus Session)
+// Pflichtfelder prüfen
 if ($title === '' || $category === '' || $description === '') {
     http_response_code(400);
     echo json_encode([
@@ -98,6 +109,7 @@ if ($title === '' || $category === '' || $description === '') {
     exit;
 }
 
+// 3) Persistenz: Quiz + optionale Zuordnungen in Transaktion
 try {
     $pdo->beginTransaction();
 
@@ -116,6 +128,7 @@ try {
         ':created' => date('Y-m-d H:i:s')
     ]);
 
+     // Neue Quiz-ID
     $quizID = (int)$pdo->lastInsertId();
 
     // Fragen zuordnen (wenn angegeben)
@@ -137,6 +150,7 @@ try {
 
     $pdo->commit();
 
+    // 4) Erfolgsresponse
     echo json_encode([
         'ok'     => true,
         'quizID' => $quizID

@@ -12,9 +12,9 @@ require __DIR__ . '/dbConnection.php';
 try {
     // Lädt eine Liste aller Quizze (für Dropdowns bei der Raumerstellung)
     $stmt = $pdo->query("
-        SELECT 
-            quizID, 
-            title, 
+        SELECT
+            quizID,
+            title,
             category,
             time_limit
         FROM quiz

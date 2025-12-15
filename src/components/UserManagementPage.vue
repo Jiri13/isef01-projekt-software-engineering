@@ -12,14 +12,14 @@
       <input v-model="newUser.last_name" placeholder="Nachname" type="text" class="form-input">
       <input v-model="newUser.email" placeholder="E-Mail" type="email" class="form-input">
 
-      <!-- NEU: Rolle auswählen -->
+      <!-- Rolle auswählen -->
       <select v-model="newUser.user_role" class="form-input">
         <option disabled value="">Rolle auswählen</option>
         <option value="Creator">Creator (normaler Benutzer)</option>
         <option value="Admin">Admin</option>
       </select>
 
-      <!-- NEU: Passwort setzen -->
+      <!-- Passwort setzen -->
       <input v-model="newUser.password" placeholder="Passwort" type="password" class="form-input">
 
       <button
@@ -63,7 +63,7 @@
               <option value="Admin">Admin</option>
             </select>
 
-            <!-- NEU: Passwort ändern -->
+            <!-- Passwort ändern -->
             <input
               v-model="user.tempPassword"
               type="password"

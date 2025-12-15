@@ -146,7 +146,7 @@ export default {
     },
 
     async editQuiz(quizID) {
-      // ✅ Sicherheits-Fallback (auch wenn Button versteckt ist)
+      // Sicherheits-Fallback (auch wenn Button versteckt ist)
       const quiz = this.quizzes.find(q => Number(q.quizID) === Number(quizID))
       if (quiz && !this.canManageQuiz(quiz)) {
         alert('❌ Keine Berechtigung dieses Quiz zu bearbeiten.')

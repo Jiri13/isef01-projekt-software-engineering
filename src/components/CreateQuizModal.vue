@@ -171,7 +171,7 @@ export default {
 
 <style scoped>
 .modal-inner {
-  /* Styles wie zuvor */
+
 }
 .badge {
   padding: 2px 8px;

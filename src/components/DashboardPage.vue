@@ -232,11 +232,10 @@ export default {
         const uid = this.sessionStore.userID
         const { data } = await axios.get('/api/listRooms.php', { params: { userID: uid } })
 
-        // In deine UI-Form bringen
+        
         this.rooms = (data || []).map(r => ({
           ...r,
           participants: Array.isArray(r.participants) ? r.participants : [],
-          // Dein Template nutzt room.questions.length → wir bauen ein Dummy-Array mit der Anzahl
           questions: new Array(r.questionsCount ?? 0).fill(null),
           maxParticipants: r.maxParticipants ?? 10
         }))

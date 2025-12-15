@@ -1,6 +1,7 @@
 <?php
 // api/updateQuestion.php
-// Endpoint zum Aktualisieren einer bestehenden Frage + Antwortoptionen
+// Aktualisiert eine bestehende Frage inklusive aller Antwortoptionen.
+// Die Bearbeitung ist ausschließlich dem Ersteller der Frage oder einem Admin erlaubt.
 
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
@@ -24,7 +25,7 @@ if (!$input) {
     exit;
 }
 
-// Eingaben prüfen
+// Eingabedaten extrahieren und normalisieren
 $questionID  = isset($input['questionID']) ? (int)$input['questionID'] : 0;
 $text        = trim((string)($input['text'] ?? ''));
 $type        = strtolower(trim((string)($input['type'] ?? 'multiple_choice')));
@@ -50,7 +51,7 @@ $currentUserID   = (int)$_SESSION['userID'];
 $currentUserRole = $_SESSION['user_role'] ?? 'Creator';
 
 try {
-    // Eigentümer der Frage holen
+    // Eigentümer der Frage ermitteln
     $stmtOwner = $pdo->prepare("SELECT userID FROM question WHERE questionID = :qid");
     $stmtOwner->execute([':qid' => $questionID]);
     $owner = $stmtOwner->fetch(PDO::FETCH_ASSOC);
@@ -63,13 +64,14 @@ try {
 
     $ownerID = (int)$owner['userID'];
 
-    // Berechtigung prüfen: Besitzer oder Admin
+    // Berechtigung prüfen: Ersteller oder Admin
     if ($ownerID !== $currentUserID && $currentUserRole !== 'Admin') {
         http_response_code(403);
         echo json_encode(['error' => 'Not allowed to update this question']);
         exit;
     }
 
+    //Transaktion starten (Frage + Optionen konsistent aktualisieren)
     $pdo->beginTransaction();
 
     // Frage aktualisieren
@@ -103,7 +105,7 @@ try {
         ");
         foreach ($options as $opt) {
             $optText = trim((string)($opt['text'] ?? ''));
-            if ($optText === '') continue;
+            if ($optText === '') continue; // leere Optionen überspringen
 
             $isCorrect = !empty($opt['isCorrect']) ? 1 : 0;
             $optStmt->execute([
@@ -114,11 +116,13 @@ try {
         }
     }
 
+    // Transaktion abschließen
     $pdo->commit();
 
     echo json_encode(['ok' => true, 'questionID' => $questionID]);
 
 } catch (Exception $e) {
+    // Fehlerbehandlung + Rollback
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
     }
