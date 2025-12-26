@@ -132,9 +132,11 @@
             >
               <input
                 class="form-input"
-                v-model="selectedQuestion.options[idx]"
+                :value="typeof opt === 'string' ? opt : (opt?.text ?? '')"
+                @input="selectedQuestion.options[idx] = $event.target.value"
                 :placeholder="`Option ${idx + 1}`"
               />
+
               <label
                 style="display:flex; align-items:center; gap:6px; font-size:14px;"
               >
